@@ -1,9 +1,10 @@
 import asyncio
+import datetime
 
-import ruamel.yaml
+from telegram.ext import Application, MessageHandler, filters
 
-from app.engine import Engine
-from app.schemas import StateChart
+from app.bot import handle_message
+from app.models import StateChart, User
 from app.settings import get_settings
 from app.utils import get_logger
 
@@ -11,14 +12,32 @@ logger = get_logger(__file__)
 settings = get_settings()
 
 
-async def main():
-    path = settings.project_root / "static" / "flip-flop.yaml"
-    with open(path) as f:
-        data = ruamel.yaml.YAML(typ="safe", pure=True).load(f)
-    statechart = StateChart.parse_obj(data)
-    engine = Engine(statechart)
-    await engine.run()
+async def run_engine_logic(app: Application):
+    from app.engine import BotEngine
+
+    statechart = StateChart.load(settings.bot_statechart_source)
+    engine = BotEngine(app, statechart)
+    asyncio.create_task(engine.run())
+
+
+async def run_user_logic(app: Application):
+    logger.info(f"running user logic, users={await User.get_active_user_ids()}")
+    for uid in await User.get_active_user_ids():
+        user = await User.load(uid, app)
+        await user.engine.dispatch_event("tick")
+
+
+def main():
+    app = (
+        Application.builder()
+        .token(settings.bot_token)
+        .post_init(run_engine_logic)
+        .build()
+    )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.job_queue.run_repeating(run_user_logic, interval=datetime.timedelta(seconds=5))
+    app.run_polling()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

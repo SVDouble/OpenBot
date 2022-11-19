@@ -1,6 +1,8 @@
 from enum import Enum
+from pathlib import Path
 from typing import Literal, Any
 
+import ruamel.yaml
 from pydantic import BaseModel, Field, ValidationError, validator
 
 __all__ = ["Event", "Contract", "Transition", "State", "StateChart"]
@@ -57,3 +59,9 @@ class StateChart(BaseModel):
     name: str
     preamble: str | None
     root_state: State = Field(alias="root state")
+
+    @classmethod
+    def load(cls, path: Path):
+        with open(path) as f:
+            data = ruamel.yaml.YAML(typ="safe", pure=True).load(f)
+        return cls.parse_obj(data)

@@ -5,12 +5,13 @@ description = ""
 authors = ["Valentin Safronov <svdouble@hotmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 fastapi = "^0.87.0"
 uvicorn = { extras = ["standard"], version = "^0.19.0" }
 rich = "^12.6.0"
 gunicorn = "^20.1.0"
 sismic = "^1.6.3"
+python-telegram-bot = { git = "https://github.com/python-telegram-bot/python-telegram-bot.git", rev = "5c3b06f015c7ae5e02f23a2a9a2afea37c551dee", extras = ["rate-limiter", "webhooks", "job-queue"] }
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"
