@@ -5,13 +5,16 @@ from typing import Mapping, Any, Callable
 import sismic.model
 from sismic.clock import UtcClock
 from sismic.code import PythonEvaluator
-from sismic.interpreter import Interpreter
 from sismic.io.datadict import import_from_dict
 from telegram.ext import Application
 
 from app.models import StateChart, User
 from app.settings import get_settings
 from app.utils import get_logger
+from asismic.interpreter import AsyncInterpreter
+from asismic.python import AsyncPythonEvaluator
+
+PythonEvaluator
 
 __all__ = ["BaseInterpreter", "UserInterpreter", "BotInterpreter"]
 
@@ -19,7 +22,7 @@ logger = get_logger(__file__)
 settings = get_settings()
 
 
-class BaseEvaluator(PythonEvaluator):
+class BaseEvaluator(AsyncPythonEvaluator):
     @property
     def context(self) -> dict:
         return self._context
@@ -29,7 +32,7 @@ class BaseEvaluator(PythonEvaluator):
         state["_context"] = {}
         return state
 
-    def _execute_code(
+    async def _execute_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> list[sismic.model.Event]:
         interpreter: UserInterpreter = self._interpreter
@@ -42,10 +45,10 @@ class BaseEvaluator(PythonEvaluator):
             "set": set_variable,
             "run": lambda future: asyncio.create_task(future),
         }
-        return super()._execute_code(code, additional_context=additional_context)
+        return await super()._execute_code(code, additional_context=additional_context)
 
 
-class BaseInterpreter(Interpreter):
+class BaseInterpreter(AsyncInterpreter):
     def __init__(
         self,
         statechart: StateChart,
@@ -66,7 +69,7 @@ class BaseInterpreter(Interpreter):
     ) -> list[sismic.model.MacroStep]:
         logger.debug(f"{type(self).__name__} got {event=}")
         self.queue(event)
-        steps = self.execute(max_steps=42)
+        steps = await self.execute(max_steps=42)
         return steps
 
     @property
@@ -81,11 +84,11 @@ class BaseInterpreter(Interpreter):
     def __setstate__(self, state):
         self.__dict__ = state
         self._evaluator = self._evaluator_klass(self)
-        self._evaluator.execute_statechart(self._statechart)
+        asyncio.create_task(self._evaluator.execute_statechart(self._statechart))
 
 
 class UserEvaluator(BaseEvaluator):
-    def _execute_code(
+    async def _execute_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> list[sismic.model.Event]:
         interpreter: UserInterpreter = self._interpreter
@@ -95,7 +98,7 @@ class UserEvaluator(BaseEvaluator):
             "accept": user.accept,
             "debug": logger.debug,
         }
-        return super()._execute_code(code, additional_context=additional_context)
+        return await super()._execute_code(code, additional_context=additional_context)
 
 
 class UserInterpreter(BaseInterpreter):
