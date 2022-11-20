@@ -13,10 +13,10 @@ settings = get_settings()
 
 
 async def run_engine_logic(app: Application):
-    from app.engine import BotEngine
+    from app.engine import BotInterpreter
 
     statechart = StateChart.load(settings.bot_statechart_source)
-    engine = BotEngine(app, statechart)
+    engine = BotInterpreter(app, statechart)
     asyncio.create_task(engine.run())
 
 
@@ -24,7 +24,7 @@ async def run_user_logic(app: Application):
     logger.info(f"running user logic, users={await User.get_active_user_ids()}")
     for uid in await User.get_active_user_ids():
         user = await User.load(uid, app)
-        await user.engine.dispatch_event("tick")
+        await user.interpreter.dispatch_event("clock")
 
 
 def main():

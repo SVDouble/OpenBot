@@ -19,8 +19,8 @@ class Settings(BaseSettings):
 
     bot_token: str
 
-    user_statechart_source: Path = static_root / "user-logic.yml"
-    bot_statechart_source: Path = static_root / "flip-flop.yml"
+    user_statechart_source: Path = static_root / "user.yml"
+    bot_statechart_source: Path = static_root / "bot.yml"
 
 
 @lru_cache()

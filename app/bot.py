@@ -1,3 +1,4 @@
+import sismic.model
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -12,7 +13,9 @@ settings = get_settings()
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message."""
-    await update.message.reply_text(update.message.text)
     user = await User.load(update.effective_user.id, context.application)
+    user.interpreter.context.update(
+        {"update": update, "context": context, "message": update.message}
+    )
+    await user.interpreter.dispatch_event(sismic.model.Event("message received"))
     await user.save()
