@@ -1,0 +1,41 @@
+services:
+  engine:
+    image: easybot
+    container_name: 'easybot_core'
+    build: .
+    environment:
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: easybot-pro-redis
+    env_file:
+      - .env
+    volumes:
+      - .:/app:ro
+    networks:
+      - easybot
+    command: [ "python", "-m", "app.engine" ]
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: docker.io/redislabs/rejson:latest
+    container_name: 'easybot_redis'
+    environment:
+      REDIS_PASSWORD: easybot-pro-redis
+    networks:
+      - easybot
+    volumes:
+      - easybot_redis_data:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping" ]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  easybot_redis_data:
+
+networks:
+  easybot:

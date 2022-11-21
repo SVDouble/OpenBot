@@ -37,7 +37,3 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.job_queue.run_repeating(run_user_logic, interval=datetime.timedelta(seconds=5))
     app.run_polling()
-
-
-if __name__ == "__main__":
-    main()

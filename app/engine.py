@@ -4,17 +4,14 @@ from typing import Mapping, Any, Callable
 
 import sismic.model
 from sismic.clock import UtcClock
-from sismic.code import PythonEvaluator
 from sismic.io.datadict import import_from_dict
 from telegram.ext import Application
 
 from app.models import StateChart, User
 from app.settings import get_settings
 from app.utils import get_logger
-from asismic.interpreter import AsyncInterpreter
-from asismic.python import AsyncPythonEvaluator
-
-PythonEvaluator
+from app.asismic.interpreter import AsyncInterpreter
+from app.asismic.python import AsyncPythonEvaluator
 
 __all__ = ["BaseInterpreter", "UserInterpreter", "BotInterpreter"]
 
