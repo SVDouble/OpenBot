@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./app:/home/app/app:ro
+      - ./:/home/app/:ro
     networks:
       - easybot
     command: [ "python", "-m", "app.engine" ]

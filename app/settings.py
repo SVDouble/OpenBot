@@ -1,3 +1,4 @@
+import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -17,6 +18,8 @@ class Settings(BaseSettings):
     static_root: Path = project_root / "static"
 
     bot_token: str
+    bot_clock_interval: datetime.timedelta = datetime.timedelta(minutes=1)
+    user_clock_interval: datetime.timedelta = datetime.timedelta(minutes=1)
 
     user_statechart_source: Path = static_root / "user.yml"
     bot_statechart_source: Path = static_root / "bot.yml"

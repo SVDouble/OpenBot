@@ -59,14 +59,19 @@ class BaseInterpreter(AsyncInterpreter):
             ignore_contract=True,
             clock=UtcClock(),
         )
+        self.attach(self._event_callback)
 
     async def dispatch_event(
         self, event: str | sismic.model.Event
     ) -> list[sismic.model.MacroStep]:
-        logger.debug(f"{type(self).__name__} got {event=}")
         self.queue(event)
         steps = await self.execute(max_steps=42)
         return steps
+
+    async def _event_callback(self, event: sismic.model.MetaEvent):
+        if event.name == "event consumed":
+
+            logger.debug(f"{type(self).__name__} got {event.data['event']}")
 
     @property
     def context(self) -> dict:
@@ -118,7 +123,7 @@ class BotInterpreter(BaseInterpreter):
     def __init__(self, app: Application, statechart: StateChart):
         super().__init__(statechart, evaluator_klass=BotEvaluator)
         self.app = app
-        self._clock_interval = datetime.timedelta(seconds=5)
+        self._clock_interval = settings.bot_clock_interval
         self._last_activity_time = datetime.datetime.min
         self._is_active = False
 

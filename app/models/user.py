@@ -10,13 +10,13 @@ __all__ = ["User"]
 
 logger = get_logger(__file__)
 settings = get_settings()
-repo: Any
+repo: Any | None = None
 
 
 class User(BaseModel):
     telegram_id: int
     context: dict = Field(default_factory=dict)
-    inputs: dict[str, str] = Field(default_factory=dict)
+    inputs: dict[Any, str] = Field(default_factory=dict)
     interpreter: Any = None
 
     async def save(self):
@@ -32,7 +32,8 @@ class User(BaseModel):
     def parse_input(self, message: Message) -> tuple[str, Any] | None:
         if not (text := message.text):
             return
-        if target := self.inputs.get("integer"):
+        inputs = self.inputs.copy()
+        if target := inputs.pop(int, None):
             try:
                 integer = int(text)
             except ValueError:
@@ -40,11 +41,15 @@ class User(BaseModel):
             else:
                 return target, integer
 
-        if target := self.inputs.get("text"):
+        if target := inputs.pop(str, None):
             return target, text
+
+        for target in inputs.keys():
+            if target == message:
+                return target, text
 
     @classmethod
     async def load(cls, telegram_id: int, app: Application) -> Self:
         global repo
-        repo = get_repository()
+        repo = repo or get_repository()
         return await repo.load_user(telegram_id, app)

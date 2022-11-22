@@ -48,8 +48,12 @@ class Repository:
         user = User(telegram_id=telegram_id)
         statechart = StateChart.load(settings.user_statechart_source)
         user.interpreter = UserInterpreter(user, app, statechart)
+        await user.interpreter.dispatch_event("init")
         await user.save()
         return user
+
+    async def remove_user(self, telegram_id: int):
+        await self.db.delete(f"user:{telegram_id}")
 
     async def get_user_ids(self) -> set[int]:
         return set(int(uid) for uid in await self.db.smembers("users"))

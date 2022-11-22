@@ -14,11 +14,10 @@ from typing import (
     Tuple,
     Union,
     cast,
+    Coroutine,
 )
 
 from sismic.clock import Clock, SimulatedClock, SynchronizedClock
-from app.asismic.evaluator import AsyncEvaluator
-from app.asismic.python import AsyncPythonEvaluator
 from sismic.exceptions import (
     ConflictingTransitionsError,
     InvariantError,
@@ -47,6 +46,9 @@ from sismic.model import (
     Transition,
 )
 from sismic.utilities import sorted_groupby
+
+from app.asismic.evaluator import AsyncEvaluator
+from app.asismic.python import AsyncPythonEvaluator
 
 __all__ = ["AsyncInterpreter"]
 
@@ -104,7 +106,7 @@ class AsyncInterpreter:
         self._external_queue = []  # type: List[Tuple[float, Event]]
 
         # Bound listeners
-        self._listeners = []  # type: List[Callable[[MetaEvent], Any]]
+        self._listeners = []  # type: List[Callable[[MetaEvent], Coroutine]]
 
         # Evaluator
         self._evaluator = evaluator_klass(self, initial_context=initial_context)
@@ -324,7 +326,7 @@ class AsyncInterpreter:
         self._sent_events.clear()
 
         # Notify listeners
-        self._raise_event(MetaEvent("step started", time=self.time))
+        await self._raise_event(MetaEvent("step started", time=self.time))
 
         # Compute steps
         computed_steps = await self._compute_steps()
@@ -334,7 +336,7 @@ class AsyncInterpreter:
             # Consume event if it triggered a transition
             if computed_steps[0].event is not None:
                 event = self._select_event(consume=True)
-                self._raise_event(MetaEvent("event consumed", event=event))
+                await self._raise_event(MetaEvent("event consumed", event=event))
             else:
                 event = None
 
@@ -363,7 +365,7 @@ class AsyncInterpreter:
             state = self._statechart.state_for(name)
             await self._evaluate_contract_conditions(state, "invariants", macro_step)
 
-        self._raise_event(MetaEvent("step ended"))
+        await self._raise_event(MetaEvent("step ended"))
 
         return macro_step
 
@@ -385,7 +387,7 @@ class AsyncInterpreter:
         )
         queue.insert(position, (time, event))
 
-    def _raise_event(self, event: Union[InternalEvent, MetaEvent]) -> None:
+    async def _raise_event(self, event: Union[InternalEvent, MetaEvent]) -> None:
         """
         Raise an event from the statechart.
 
@@ -395,13 +397,13 @@ class AsyncInterpreter:
         """
         if isinstance(event, InternalEvent):
             self._queue_event(event)
-            self._raise_event(MetaEvent("event sent", event=event))
+            await self._raise_event(MetaEvent("event sent", event=event))
             if hasattr(event, "delay"):
                 # Deprecated since 1.4.0
-                self._raise_event(MetaEvent("delayed event sent", event=event))
+                await self._raise_event(MetaEvent("delayed event sent", event=event))
         elif isinstance(event, MetaEvent):
             for listener in self._listeners:
-                listener(event)
+                await listener(event)
         else:
             raise ValueError(
                 "Only InternalEvent and MetaEvent can be sent by a statechart, not {}".format(
@@ -794,7 +796,7 @@ class AsyncInterpreter:
             await self._evaluate_contract_conditions(state, "postconditions", step)
 
             # Notify properties
-            self._raise_event(MetaEvent("state exited", state=state.name))
+            await self._raise_event(MetaEvent("state exited", state=state.name))
 
         # Execute transition
         if step.transition:
@@ -822,7 +824,7 @@ class AsyncInterpreter:
             self._idle_time[step.transition.source] = self.time
 
             # Notify properties
-            self._raise_event(
+            await self._raise_event(
                 MetaEvent(
                     "transition processed",
                     source=step.transition.source,
@@ -845,11 +847,11 @@ class AsyncInterpreter:
             self._idle_time[state.name] = self.time
 
             # Notify properties
-            self._raise_event(MetaEvent("state entered", state=state.name))
+            await self._raise_event(MetaEvent("state entered", state=state.name))
 
         # Send events
         for event in cast(Union[InternalEvent, MetaEvent], sent_events):
-            self._raise_event(event)
+            await self._raise_event(event)
             self._sent_events.append(event)
 
         return MicroStep(
