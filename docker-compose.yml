@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     volumes:
-      - .:/app:ro
+      - ./app:/home/app/app:ro
     networks:
       - easybot
     command: [ "python", "-m", "app.engine" ]
@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: docker.io/redislabs/rejson:latest
+    image: docker.io/redis:7.0
     container_name: 'easybot_redis'
     environment:
       REDIS_PASSWORD: easybot-pro-redis

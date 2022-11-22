@@ -1,10 +1,9 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseSettings
+from pydantic import BaseSettings, AnyUrl
 
-__all__ = ["Settings", "get_settings"]
+__all__ = ["Settings"]
 
 
 class Settings(BaseSettings):
@@ -22,7 +21,5 @@ class Settings(BaseSettings):
     user_statechart_source: Path = static_root / "user.yml"
     bot_statechart_source: Path = static_root / "bot.yml"
 
-
-@lru_cache()
-def get_settings() -> Settings:
-    return Settings()
+    redis_url: AnyUrl = "redis://redis"
+    redis_db: int = 0

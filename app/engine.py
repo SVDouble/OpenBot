@@ -7,11 +7,10 @@ from sismic.clock import UtcClock
 from sismic.io.datadict import import_from_dict
 from telegram.ext import Application
 
-from app.models import StateChart, User
-from app.settings import get_settings
-from app.utils import get_logger
 from app.asismic.interpreter import AsyncInterpreter
 from app.asismic.python import AsyncPythonEvaluator
+from app.models import StateChart, User
+from app.utils import get_logger, get_settings
 
 __all__ = ["BaseInterpreter", "UserInterpreter", "BotInterpreter"]
 

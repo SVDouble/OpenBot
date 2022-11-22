@@ -1,21 +1,16 @@
-import pickle
 from typing import Self, Any
 
 from pydantic import BaseModel, Field
 from telegram import Message
 from telegram.ext import Application
 
-from app.models import StateChart
-from app.settings import get_settings
-from app.utils import get_logger
+from app.utils import get_logger, get_settings, get_repository
 
 __all__ = ["User"]
 
 logger = get_logger(__file__)
 settings = get_settings()
-
-# TODO: replace with redis
-storage: dict[int, bytes] = {}
+repo: Any
 
 
 class User(BaseModel):
@@ -25,7 +20,7 @@ class User(BaseModel):
     interpreter: Any = None
 
     async def save(self):
-        storage[self.telegram_id] = pickle.dumps(self)
+        await repo.save_user(self)
 
     def expect(self, **inputs):
         self.inputs.update({v: k for k, v in inputs.items()})
@@ -50,18 +45,6 @@ class User(BaseModel):
 
     @classmethod
     async def load(cls, telegram_id: int, app: Application) -> Self:
-        from app.engine import UserInterpreter
-
-        if pickled_user := storage.get(telegram_id):
-            user = pickle.loads(pickled_user)
-            user.interpreter.user = user
-            user.interpreter.app = app
-            return user
-        user = User(telegram_id=telegram_id)
-        statechart = StateChart.load(settings.user_statechart_source)
-        user.interpreter = UserInterpreter(user, app, statechart)
-        return user
-
-    @classmethod
-    async def get_active_user_ids(cls) -> list[int]:
-        return list(storage.keys())
+        global repo
+        repo = get_repository()
+        return await repo.load_user(telegram_id, app)

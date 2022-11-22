@@ -188,7 +188,7 @@ class AsyncInterpreter:
         self._listeners.remove(listener)
 
     def bind(
-        self, interpreter_or_callable: Union["Interpreter", Callable[[Event], Any]]
+        self, interpreter_or_callable: Union["AsyncInterpreter", Callable[[Event], Any]]
     ) -> Callable[[MetaEvent], Any]:
         """
         Bind an interpreter (or a callable) to the current interpreter.
@@ -205,7 +205,7 @@ class AsyncInterpreter:
         :param interpreter_or_callable: interpreter or callable to bind.
         :return: the resulting attached listener.
         """
-        if isinstance(interpreter_or_callable, Interpreter):
+        if isinstance(interpreter_or_callable, AsyncInterpreter):
             listener = InternalEventListener(interpreter_or_callable.queue)
         else:
             listener = InternalEventListener(interpreter_or_callable)
@@ -240,7 +240,7 @@ class AsyncInterpreter:
             and a named parameter clock. Default to Interpreter.
         :return: the resulting attached listener.
         """
-        if isinstance(statechart, Interpreter):
+        if isinstance(statechart, AsyncInterpreter):
             warnings.warn(
                 "Passing an interpreter to bind_property_statechart is deprecated since 1.4.0. "
                 "Use interpreter_klass instead.",
@@ -250,7 +250,7 @@ class AsyncInterpreter:
             interpreter.clock = SynchronizedClock(self)
         else:
             interpreter_klass = (
-                Interpreter if interpreter_klass is None else interpreter_klass
+                AsyncInterpreter if interpreter_klass is None else interpreter_klass
             )
             interpreter = interpreter_klass(statechart, clock=SynchronizedClock(self))
 
@@ -264,7 +264,7 @@ class AsyncInterpreter:
         event_or_name: Union[str, Event],
         *event_or_names: Union[str, Event],
         **parameters,
-    ) -> "Interpreter":
+    ) -> "AsyncInterpreter":
         """
         Create and queue given events to the external event queue.
 

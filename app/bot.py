@@ -3,8 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from app.models import User
-from app.settings import get_settings
-from app.utils import get_logger
+from app.utils import get_logger, get_settings
 
 __all__ = ["handle_message"]
 
