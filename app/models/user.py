@@ -46,17 +46,24 @@ class User(BaseModel):
     def accept(self, name: str):
         del self.inputs[name]
 
-    async def make_inline_button(
-        self, name: str, target: str = None, button_kwargs: dict = None, **kwargs
-    ) -> InlineKeyboardButton:
+    async def make_inline_button(self, name: str, **kwargs) -> InlineKeyboardButton:
         callback = Callback(
-            user_telegram_id=self.telegram_id, target=target or name, **kwargs
+            user_telegram_id=self.telegram_id,
+            data=kwargs.pop("data", name),
+            **kwargs,
         )
         await callback.save()
-        return InlineKeyboardButton(name, callback_data=callback.id, **button_kwargs)
+        return InlineKeyboardButton(name, callback_data=str(callback.id))
 
-    def clean_input(self, message: Message) -> tuple[str, Any] | None:
-        if not (text := message.text):
+    def clean_input(
+        self, message: Message | None = None, callback: Callback | None = None
+    ) -> tuple[str, Any] | None:
+        if not (message is None) ^ (callback is None):
+            raise RuntimeError("either message or callback must be specified")
+        # noinspection PyUnresolvedReferences
+        text = message.text if callback is None else callback.data
+
+        if not text:
             return
 
         for target, constraint in sorted(self.inputs.items(), key=lambda item: item[1]):

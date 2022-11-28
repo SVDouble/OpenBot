@@ -1,5 +1,6 @@
 from functools import partial
 from operator import attrgetter
+from typing import Any
 
 from telegram import (
     InlineKeyboardMarkup,
@@ -18,14 +19,14 @@ settings = get_settings()
 
 
 class QuestionManager:
-    target_action_skip_question = "skip question"
-    target_action_save_answer = "save answer"
-    target_action_create_option = "create option"
+    action_skip_question = "skip question"
+    action_save_answer = "save answer"
+    action_create_option = "create option"
 
     def __init__(self, user: User):
         self.user: User = user
         self.question = (q := user.question)
-        self.inline = q.is_multiple_choice or (
+        self.is_inline = q.is_multiple_choice or (
             q.is_single_choice and user.is_registered
         )
 
@@ -37,14 +38,13 @@ class QuestionManager:
     def is_option_selected(self, option: Option) -> bool:
         return option.id in self.user.selected_options.keys()
 
-    def create_button(self, name: str, **kwargs):
-        if self.inline:
-            return self.user.make_inline_button(name, **kwargs)
-        kwargs.pop("target", None)
+    async def create_button(self, name: str, data: Any, **kwargs):
+        if self.is_inline:
+            return await self.user.make_inline_button(name, data=data, **kwargs)
         return KeyboardButton(name, **kwargs)
 
     def _create_markup(self, buttons: list[list]):
-        if self.inline:
+        if self.is_inline:
             return InlineKeyboardMarkup(buttons)
         if buttons:
             return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
@@ -59,13 +59,11 @@ class QuestionManager:
             return "Отправить"
         return "Ничего из перечисленного"
 
-    def _create_choice_buttons(self) -> list[list]:
-        btn = self.create_button
-
+    async def _create_choice_buttons(self) -> list[list]:
         buttons = []
         prev_big = False
         for option in self.options:
-            button = btn(str(option), target=option.id)
+            button = await self.create_button(str(option), data=str(option.id))
             big = len(option) > settings.inline_half_width
             if buttons and len(buttons[-1]) == 1 and not prev_big and not big:
                 buttons[-1].append(button)
@@ -74,20 +72,19 @@ class QuestionManager:
             prev_big = big
         return buttons
 
-    def get_text_options(self) -> list[str]:
-        return [str(option) for option in self.options]
+    def get_options(self) -> list[str]:
+        return [str(option.id if self.is_inline else option) for option in self.options]
 
-    def get_markup(
+    async def get_markup(
         self, final: bool = False, skipped: bool = False, extra: list[list[str]] = None
     ) -> InlineKeyboardMarkup:
-        btn = self.create_button
-        buttons = self._create_choice_buttons()
+        buttons = await self._create_choice_buttons()
 
         # button with the action "custom choice"
         if self.question.is_customizable and not final:
-            button = btn(
+            button = await self.create_button(
                 self.question.text_action_create_option,
-                target=self.target_action_create_option,
+                data=self.action_create_option,
             )
             buttons.append([button])
 
@@ -98,44 +95,43 @@ class QuestionManager:
         # button "save" for questions with multiple choices
         if self.question.is_multiple_choice and self.is_answer_valid:
             action = self.get_action(final, skipped)
-            button = btn(
-                action, target=self.target_action_save_answer, auto_answer=False
-            )
+            button = await self.create_button(action, data=self.action_save_answer)
             buttons.append([button])
 
         # add the "skip" button
         if self.question.is_skippable and not self.user.selected_options:
             button = None
             if not final or final and self.question.is_single_choice and not skipped:
-                button = btn(
+                button = await self.create_button(
                     self.question.text_action_skip_question,
-                    target=self.target_action_skip_question,
+                    data=self.action_skip_question,
                 )
             if final and self.question.is_single_choice and skipped:
-                button = btn(
+                button = await self.create_button(
                     f"✅ {self.question.text_action_skip_question}",
-                    target=self.target_action_skip_question,
+                    data=self.action_skip_question,
                 )
             if button:
                 buttons.append([button])
 
         # add the home button
-        if not self.inline and (home := self.user.home_message):
+        if not self.is_inline and (home := self.user.home_message):
             buttons.append([KeyboardButton(home)])
 
         return self._create_markup(buttons)
 
-    def get_option(self, item: str) -> Option:
+    def parse_option(self, item: str) -> Option:
         for option in self.options:
-            if item == (option.id if self.inline else str(option)):
+            if item == str(option.id if self.is_inline else option):
                 return option
         raise KeyError(
-            f'Option with the {"id" if self.inline else "name"} {item} does not exist!'
+            f'Option with the {"id" if self.is_inline else "name"} '
+            f"{item} does not exist!"
         )
 
-    def select_option(self, option: str | Option):
+    def toggle_option(self, option: str | Option):
         if isinstance(option, str):
-            option = self.get_option(option)
+            option = self.parse_option(option)
         if (uuid := option.id) in self.user.selected_options:
             del self.user.selected_options[uuid]
         else:

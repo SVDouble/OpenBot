@@ -6,9 +6,10 @@ from telegram.ext import (
     filters,
     CommandHandler,
     ContextTypes,
+    CallbackQueryHandler,
 )
 
-from app.bot import handle_message, commands, handle_command
+from app.bot import handle_message, commands, handle_command, handle_callback_query
 from app.models import StateChart, User
 from app.utils import get_logger, get_settings, get_repository
 
@@ -44,9 +45,13 @@ def main():
         .build()
     )
     app.add_error_handler(handle_error)
-    for name, callback in commands.items():
-        app.add_handler(CommandHandler(name, callback))
-    app.add_handler(MessageHandler(filters.COMMAND, handle_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handlers(
+        [
+            *[CommandHandler(name, callback) for name, callback in commands.items()],
+            MessageHandler(filters.COMMAND, handle_command),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message),
+            CallbackQueryHandler(handle_callback_query),
+        ]
+    )
     app.job_queue.run_repeating(run_user_logic, interval=settings.user_clock_interval)
     app.run_polling()
