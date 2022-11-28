@@ -1,6 +1,12 @@
 import asyncio
 
-from telegram.ext import Application, MessageHandler, filters, CommandHandler
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    filters,
+    CommandHandler,
+    ContextTypes,
+)
 
 from app.bot import handle_message, commands, handle_command
 from app.models import StateChart, User
@@ -26,6 +32,10 @@ async def run_user_logic(app: Application):
         await user.interpreter.dispatch_event("clock")
 
 
+async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+
+
 def main():
     app = (
         Application.builder()
@@ -33,6 +43,7 @@ def main():
         .post_init(run_engine_logic)
         .build()
     )
+    app.add_error_handler(handle_error)
     for name, callback in commands.items():
         app.add_handler(CommandHandler(name, callback))
     app.add_handler(MessageHandler(filters.COMMAND, handle_command))

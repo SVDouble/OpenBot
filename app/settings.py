@@ -1,4 +1,5 @@
 import datetime
+from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
@@ -6,9 +7,12 @@ from pydantic import BaseSettings, AnyUrl
 
 __all__ = ["Settings"]
 
+from telegram import Bot
+
 
 class Settings(BaseSettings):
     class Config:
+        keep_untouched = (cached_property,)
         env_file = Path(__file__).parent.parent / ".env"
 
     title: str = "EasyBot"
@@ -26,3 +30,10 @@ class Settings(BaseSettings):
 
     redis_url: AnyUrl = "redis://redis"
     redis_db: int = 0
+
+    inline_half_width = 15
+    inline_full_width = 36
+
+    @cached_property
+    def bot(self) -> Bot:
+        return Bot(self.bot_token)

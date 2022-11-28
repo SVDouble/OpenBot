@@ -31,15 +31,13 @@ class BaseEvaluator(AsyncPythonEvaluator):
     async def _execute_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> list[sismic.model.Event]:
-        interpreter: UserInterpreter = self._interpreter
-
         def set_variable(name: str, value):
             self._context[name] = value
 
         additional_context = (additional_context or {}) | {
-            "bot": interpreter.app.bot,
             "set": set_variable,
             "run": lambda future: asyncio.create_task(future),
+            "logger": get_logger(type(self).__name__),
         }
         return await super()._execute_code(code, additional_context=additional_context)
 
@@ -70,7 +68,6 @@ class BaseInterpreter(AsyncInterpreter):
 
     async def _event_callback(self, event: sismic.model.MetaEvent):
         if event.name == "event consumed":
-
             logger.debug(f"{type(self).__name__} got {event.data['event']}")
 
     @property
@@ -94,12 +91,20 @@ class UserEvaluator(BaseEvaluator):
     ) -> list[sismic.model.Event]:
         interpreter: UserInterpreter = self._interpreter
         additional_context = (additional_context or {}) | {
+            "bot": interpreter.app.bot,
             "user": (user := interpreter.user),
             "expect": user.expect,
             "accept": user.accept,
             "debug": logger.debug,
         }
         return await super()._execute_code(code, additional_context=additional_context)
+
+    async def _evaluate_code(
+        self, code: str | None, *, additional_context: Mapping[str, Any] = None
+    ) -> bool:
+        interpreter: UserInterpreter = self._interpreter
+        additional_context = (additional_context or {}) | {"user": interpreter.user}
+        return await super()._evaluate_code(code, additional_context=additional_context)
 
 
 class UserInterpreter(BaseInterpreter):
@@ -116,7 +121,12 @@ class UserInterpreter(BaseInterpreter):
 
 
 class BotEvaluator(BaseEvaluator):
-    pass
+    async def _execute_code(
+        self, code: str | None, *, additional_context: Mapping[str, Any] = None
+    ) -> list[sismic.model.Event]:
+        interpreter: BotInterpreter = self._interpreter
+        additional_context = (additional_context or {}) | {"bot": interpreter.app.bot}
+        return await super()._execute_code(code, additional_context=additional_context)
 
 
 class BotInterpreter(BaseInterpreter):

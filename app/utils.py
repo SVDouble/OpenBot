@@ -5,7 +5,7 @@ from pydantic import BaseModel, validate_model
 from rich.console import Console
 from rich.logging import RichHandler
 
-__all__ = ["get_logger", "get_settings", "get_repository", "validate"]
+__all__ = ["get_logger", "get_settings", "get_repository", "validate", "split"]
 
 console = Console(color_system="256", width=150, style="blue")
 
@@ -41,3 +41,7 @@ def validate(model: BaseModel):
     *_, validation_error = validate_model(model.__class__, model.__dict__)
     if validation_error:
         raise validation_error
+
+
+def split(lst: list, n: int) -> list[list]:
+    return [lst[i : i + n] for i in range(0, len(lst), n)]
