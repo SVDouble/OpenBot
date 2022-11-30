@@ -19,6 +19,10 @@ settings = get_settings()
 
 
 class BaseEvaluator(AsyncPythonEvaluator):
+    @classmethod
+    def get_imports(cls) -> dict:
+        return {}
+
     @property
     def context(self) -> dict:
         return self._context
@@ -38,8 +42,15 @@ class BaseEvaluator(AsyncPythonEvaluator):
             "set": set_variable,
             "run": lambda future: asyncio.create_task(future),
             "logger": get_logger(type(self).__name__),
+            **self.get_imports(),
         }
         return await super()._execute_code(code, additional_context=additional_context)
+
+    async def _evaluate_code(
+        self, code: str | None, *, additional_context: Mapping[str, Any] = None
+    ) -> bool:
+        additional_context = (additional_context or {}) | self.get_imports()
+        return await super()._evaluate_code(code, additional_context=additional_context)
 
 
 class BaseInterpreter(AsyncInterpreter):
@@ -86,6 +97,18 @@ class BaseInterpreter(AsyncInterpreter):
 
 
 class UserEvaluator(BaseEvaluator):
+    @classmethod
+    def get_imports(cls) -> dict:
+        from app.questions import QuestionManager
+        from app.models import Content
+        from telegram.constants import ParseMode
+
+        return {
+            "QuestionManager": QuestionManager,
+            "Content": Content,
+            "ParseMode": ParseMode,
+        }
+
     async def _execute_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> list[sismic.model.Event]:
@@ -94,7 +117,7 @@ class UserEvaluator(BaseEvaluator):
             "bot": interpreter.app.bot,
             "user": (user := interpreter.user),
             "expect": user.expect,
-            "accept": user.accept,
+            "release": user.release,
             "debug": logger.debug,
         }
         return await super()._execute_code(code, additional_context=additional_context)

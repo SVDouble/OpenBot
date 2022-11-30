@@ -81,7 +81,11 @@ class QuestionManager:
         buttons = await self._create_choice_buttons()
 
         # button with the action "custom choice"
-        if self.question.is_customizable and not final:
+        if (
+            self.question.is_customizable
+            and not final
+            and not self.question.is_open_ended
+        ):
             button = await self.create_button(
                 self.question.text_action_create_option,
                 data=self.action_create_option,

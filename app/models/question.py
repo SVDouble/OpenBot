@@ -18,8 +18,9 @@ class Question(BaseModel):
     )
     name: str
     expect: Content.Type
+    field: str | None = None
     emoji: str = ""
-    label: str = ""
+    label: str | None = None
     is_skippable: bool = False
     is_customizable: bool = False
     accept_empty_answers: bool = False
@@ -28,7 +29,7 @@ class Question(BaseModel):
     text_prompt_create_option: str = "Введите свой вариант"
     text_action_skip_question: str = "Пропустить вопрос"
 
-    options: list[Option]
+    options: list[Option] = Field(default_factory=list)
 
     def __str__(self):
         emoji = f"{self.emoji} " if self.emoji else ""

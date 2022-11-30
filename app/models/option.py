@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ class Option(BaseModel):
     emoji: str = ""
     label: str = ""
     order: int = 0
-    content_id: UUID = Field(default_factory=uuid4)
+    value: Any | None = None
 
     is_active: Callable[[], bool] | None = None
 
