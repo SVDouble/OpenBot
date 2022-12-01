@@ -170,7 +170,10 @@ class Content(BaseModel):
                 require(self.value, bool)
                 self._payload = self.value
             case ct.NUMBER:
-                self._payload = parse_number(self.value)
+                if isinstance(self.value, int | float):
+                    self._payload = self.value
+                else:
+                    self._payload = parse_number(self.value)
             case ct.NUMBER_RANGE:
                 self._payload = parse_range(parse_number, self.value)
             case ct.DATE:

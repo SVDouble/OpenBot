@@ -1,4 +1,3 @@
-from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -11,38 +10,22 @@ __all__ = ["Question"]
 
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    type: (
-        Literal["SingleChoiceQuestion"]
-        | Literal["MultipleChoiceQuestion"]
-        | Literal["OpenEndedQuestion"]
-    )
     name: str
-    expect: Content.Type
-    field: str | None = None
     emoji: str = ""
-    label: str | None = None
-    is_skippable: bool = False
-    is_customizable: bool = False
-    accept_empty_answers: bool = False
 
-    text_action_create_option: str = "Добавить вариант"
-    text_prompt_create_option: str = "Введите свой вариант"
-    text_action_skip_question: str = "Пропустить вопрос"
+    field: str | None = None
+    content_type: Content.Type
 
-    options: list[Option] = Field(default_factory=list)
+    allow_skipping: bool = False
+    allow_arbitrary_input: bool = False
+    allow_multiple_choices: bool = False
+    allow_empty_answers: bool = False
+
+    text_skip: str = "Пропустить вопрос"
+    text_error: str | None = None
+
+    options: list[list[Option]] = Field(default_factory=list)
 
     def __str__(self):
         emoji = f"{self.emoji} " if self.emoji else ""
         return f"[{self.id.hex[:8]}] {emoji}{self.name}"
-
-    @property
-    def is_single_choice(self) -> bool:
-        return self.type == "SingleChoiceQuestion"
-
-    @property
-    def is_multiple_choice(self) -> bool:
-        return self.type == "MultipleChoiceQuestion"
-
-    @property
-    def is_open_ended(self) -> bool:
-        return self.type == "OpenEndedQuestion"

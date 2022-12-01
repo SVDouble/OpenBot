@@ -22,6 +22,7 @@ repo: Any | None = None
 class User(BaseModel):
     telegram_id: int
     data: dict[str, Any] = Field(default_factory=dict)
+    is_registered: bool = False
 
     inputs: dict[str, Content] = Field(default_factory=dict)
     question: Question | None = None
@@ -29,9 +30,7 @@ class User(BaseModel):
     created_options: set[Content] = Field(default_factory=set)
     validate_answer: bool = False
     last_answer: Any | None = None
-
-    is_registered: bool = False
-    home_message: str | None = None
+    is_reply_keyboard_set: bool = False
 
     interpreter: Any = None
 
@@ -39,13 +38,17 @@ class User(BaseModel):
         return self.data[item]
 
     @property
+    def total_choices(self) -> int:
+        return len(self.selected_options) + len(self.created_options)
+
+    @property
     def answer(self) -> Any:
         answer = {
-            Content(type=self.question.expect, value=option.value or option.name)
+            Content(type=self.question.content_type, value=option.value or option.name)
             for option in self.selected_options.values()
         } | self.created_options
         answer = {content.payload for content in answer}
-        return answer if self.question.is_multiple_choice else answer.pop()
+        return answer if self.question.allow_multiple_choices else answer.pop()
 
     async def save(self):
         await repo.save_user(self)

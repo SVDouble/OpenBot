@@ -5,6 +5,8 @@ from typing import Mapping, Any, Callable
 import sismic.model
 from sismic.clock import UtcClock
 from sismic.io.datadict import import_from_dict
+from telegram import ReplyKeyboardRemove, ReplyKeyboardMarkup
+from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.asismic.interpreter import AsyncInterpreter
@@ -100,13 +102,14 @@ class UserEvaluator(BaseEvaluator):
     @classmethod
     def get_imports(cls) -> dict:
         from app.questions import QuestionManager
-        from app.models import Content
-        from telegram.constants import ParseMode
+        import app.models as models
 
         return {
             "QuestionManager": QuestionManager,
-            "Content": Content,
             "ParseMode": ParseMode,
+            "ReplyKeyboardRemove": ReplyKeyboardRemove,
+            "ReplyKeyboardMarkup": ReplyKeyboardMarkup,
+            **{key: getattr(models, key) for key in models.__all__},
         }
 
     async def _execute_code(
@@ -116,6 +119,7 @@ class UserEvaluator(BaseEvaluator):
         additional_context = (additional_context or {}) | {
             "bot": interpreter.app.bot,
             "user": (user := interpreter.user),
+            "question": user.question,
             "expect": user.expect,
             "release": user.release,
             "debug": logger.debug,
@@ -126,7 +130,10 @@ class UserEvaluator(BaseEvaluator):
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> bool:
         interpreter: UserInterpreter = self._interpreter
-        additional_context = (additional_context or {}) | {"user": interpreter.user}
+        additional_context = (additional_context or {}) | {
+            "user": (user := interpreter.user),
+            "question": user.question,
+        }
         return await super()._evaluate_code(code, additional_context=additional_context)
 
 

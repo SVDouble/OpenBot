@@ -10,11 +10,10 @@ class Option(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
     emoji: str = ""
-    label: str = ""
-    order: int = 0
     value: Any | None = None
 
     is_active: Callable[[], bool] | None = None
+    is_dummy: bool = False
 
     def __str__(self):
         prefix = f"{self.prefix} " if self.prefix else ""
