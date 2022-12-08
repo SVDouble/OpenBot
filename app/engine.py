@@ -22,7 +22,7 @@ settings = get_settings()
 
 class BaseEvaluator(AsyncPythonEvaluator):
     @classmethod
-    def get_imports(cls) -> dict:
+    def _get_imports(cls) -> dict:
         return {}
 
     @property
@@ -34,6 +34,9 @@ class BaseEvaluator(AsyncPythonEvaluator):
         state["_context"] = {}
         return state
 
+    async def _get_shared_context(self) -> dict[str, Any]:
+        return {}
+
     async def _execute_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> list[sismic.model.Event]:
@@ -44,14 +47,18 @@ class BaseEvaluator(AsyncPythonEvaluator):
             "set": set_variable,
             "run": lambda future: asyncio.create_task(future),
             "logger": get_logger(type(self).__name__),
-            **self.get_imports(),
+            **self._get_imports(),
+            **self._get_shared_context(),
         }
         return await super()._execute_code(code, additional_context=additional_context)
 
     async def _evaluate_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> bool:
-        additional_context = (additional_context or {}) | self.get_imports()
+        additional_context = (additional_context or {}) | {
+            **self._get_imports(),
+            **self._get_shared_context(),
+        }
         return await super()._evaluate_code(code, additional_context=additional_context)
 
 
@@ -100,7 +107,7 @@ class BaseInterpreter(AsyncInterpreter):
 
 class UserEvaluator(BaseEvaluator):
     @classmethod
-    def get_imports(cls) -> dict:
+    def _get_imports(cls) -> dict:
         from app.questions import QuestionManager
         import app.models as models
 
@@ -112,11 +119,9 @@ class UserEvaluator(BaseEvaluator):
             **{key: getattr(models, key) for key in models.__all__},
         }
 
-    async def _execute_code(
-        self, code: str | None, *, additional_context: Mapping[str, Any] = None
-    ) -> list[sismic.model.Event]:
+    async def _get_shared_context(self) -> dict[str, Any]:
         interpreter: UserInterpreter = self._interpreter
-        additional_context = (additional_context or {}) | {
+        return {
             "bot": interpreter.app.bot,
             "user": (user := interpreter.user),
             "question": user.question,
@@ -124,17 +129,6 @@ class UserEvaluator(BaseEvaluator):
             "release": user.release,
             "debug": logger.debug,
         }
-        return await super()._execute_code(code, additional_context=additional_context)
-
-    async def _evaluate_code(
-        self, code: str | None, *, additional_context: Mapping[str, Any] = None
-    ) -> bool:
-        interpreter: UserInterpreter = self._interpreter
-        additional_context = (additional_context or {}) | {
-            "user": (user := interpreter.user),
-            "question": user.question,
-        }
-        return await super()._evaluate_code(code, additional_context=additional_context)
 
 
 class UserInterpreter(BaseInterpreter):
@@ -151,6 +145,10 @@ class UserInterpreter(BaseInterpreter):
 
 
 class BotEvaluator(BaseEvaluator):
+    async def _get_shared_context(self) -> dict[str, Any]:
+        interpreter: BotInterpreter = self._interpreter
+        return {"bot": interpreter.app.bot}
+
     async def _execute_code(
         self, code: str | None, *, additional_context: Mapping[str, Any] = None
     ) -> list[sismic.model.Event]:
