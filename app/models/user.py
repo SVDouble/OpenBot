@@ -1,7 +1,9 @@
+from functools import cached_property
 from typing import Self, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session as SqlSession
 from telegram import InlineKeyboardButton, Message
 from telegram.ext import Application
 
@@ -10,6 +12,7 @@ from app.models.callback import Callback
 from app.models.content import Content
 from app.models.option import Option
 from app.models.question import Question
+from app.profile import get_profile, Session
 from app.utils import get_logger, get_settings, get_repository
 
 __all__ = ["User"]
@@ -20,6 +23,9 @@ repo: Any | None = None
 
 
 class User(BaseModel):
+    class Config:
+        keep_untouched = (cached_property,)
+
     telegram_id: int
     data: dict[str, Any] = Field(default_factory=dict)
     is_registered: bool = False
@@ -36,6 +42,14 @@ class User(BaseModel):
 
     def __getitem__(self, item):
         return self.data[item]
+
+    @cached_property
+    def _session(self) -> SqlSession:
+        return Session()
+
+    @cached_property
+    def profile(self) -> Any:
+        return get_profile(self._session, self.telegram_id)
 
     @property
     def total_choices(self) -> int:
@@ -106,3 +120,15 @@ class User(BaseModel):
         global repo
         repo = repo or get_repository()
         return await repo.load_user(telegram_id, app)
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        cache = self.__dict__
+        if session := cache.pop("_session", None):
+            session: SqlSession
+            session.commit()
+            session.close()
+        cache.pop("profile", None)
+        await self.save()

@@ -1,4 +1,3 @@
-import sismic.model
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -36,27 +35,29 @@ commands = {"reset": reset, "ping": ping, "state": state}
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = await User.load(update.effective_user.id, context.application)
-    user.interpreter.context.update(
-        {"update": update, "context": context, "message": update.effective_message}
-    )
-    await user.interpreter.dispatch_event(sismic.model.Event("received message"))
-    await user.save()
+    async with (await User.load(update.effective_user.id, context.application)) as user:
+        user.interpreter.context.update(
+            {
+                "update": update,
+                "context": context,
+                "message": update.effective_message,
+            }
+        )
+        await user.interpreter.dispatch_event("received message")
 
 
 async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = await User.load(update.effective_user.id, context.application)
-    user.interpreter.context.update(
-        {
-            "update": update,
-            "context": context,
-            "message": (message := update.effective_message),
-            "command": message.text[1 : message.entities[0].length],
-            "args": context.args,
-        }
-    )
-    await user.interpreter.dispatch_event(sismic.model.Event("received command"))
-    await user.save()
+    async with (await User.load(update.effective_user.id, context.application)) as user:
+        user.interpreter.context.update(
+            {
+                "update": update,
+                "context": context,
+                "message": (message := update.effective_message),
+                "command": message.text[1 : message.entities[0].length],
+                "args": context.args,
+            }
+        )
+        await user.interpreter.dispatch_event("received command")
 
 
 async def handle_callback_query(
@@ -69,9 +70,13 @@ async def handle_callback_query(
         return
     if callback.auto_answer:
         await query.answer()
-    user = await User.load(update.effective_user.id, context.application)
-    user.interpreter.context.update(
-        {"update": update, "context": context, "query": query, "callback": callback}
-    )
-    await user.interpreter.dispatch_event(sismic.model.Event("received callback query"))
-    await user.save()
+    async with (await User.load(update.effective_user.id, context.application)) as user:
+        user.interpreter.context.update(
+            {
+                "update": update,
+                "context": context,
+                "query": query,
+                "callback": callback,
+            }
+        )
+        await user.interpreter.dispatch_event("received callback query")

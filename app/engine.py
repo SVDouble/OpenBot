@@ -48,7 +48,7 @@ class BaseEvaluator(AsyncPythonEvaluator):
             "run": lambda future: asyncio.create_task(future),
             "logger": get_logger(type(self).__name__),
             **self._get_imports(),
-            **self._get_shared_context(),
+            **(await self._get_shared_context()),
         }
         return await super()._execute_code(code, additional_context=additional_context)
 
@@ -57,7 +57,7 @@ class BaseEvaluator(AsyncPythonEvaluator):
     ) -> bool:
         additional_context = (additional_context or {}) | {
             **self._get_imports(),
-            **self._get_shared_context(),
+            **(await self._get_shared_context()),
         }
         return await super()._evaluate_code(code, additional_context=additional_context)
 

@@ -27,7 +27,10 @@ async def run_engine_logic(app: Application):
 
 
 async def run_user_logic(app: Application):
+    from app.profile import reload_profile_class
+
     logger.info(f"running user logic, users={await repo.get_user_ids()}")
+    reload_profile_class()
     for uid in await repo.get_user_ids():
         user = await User.load(uid, app)
         await user.interpreter.dispatch_event("clock")

@@ -88,7 +88,7 @@ class Content(BaseModel):
                 "metadata": {
                     "file_unique_id": payload.file_unique_id,
                     "file_id": payload.file_id,
-                    "bot": settings.bot.username,
+                    "bot": settings.bot_username,
                 },
             }
 
