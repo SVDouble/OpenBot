@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import partial
 from itertools import chain
 from typing import Any
@@ -26,11 +27,18 @@ class QuestionManager:
     def __init__(self, user: User):
         self.user: User = user
         self.question = user.question
-        self.is_inline = user.question.allow_multiple_choices or user.is_registered
-        self.option_markup: list[list[Option]] = user.question.options
-        self.options: list[Option] = list(chain.from_iterable(self.option_markup))
+        self.options: list[Option] = self.question.options
+        self.option_layout: list[list[Option]] = self._generate_option_layout(self.question.options)
+        self.is_inline = self.question.allow_multiple_choices or user.is_registered
         for option in self.options:
             option.is_active = partial(self.is_option_selected, option)
+
+    @staticmethod
+    def _generate_option_layout(options: list[Option]) -> list[list[Option]]:
+        layout = defaultdict(dict)
+        for option in options:
+            layout[option.row][option.column] = option
+        return [[layout[row][column] for column in sorted(layout[row].keys())] for row in sorted(layout.keys())]
 
     def is_option_selected(self, option: Option) -> bool:
         return option.id in self.user.selected_options.keys()
@@ -62,14 +70,14 @@ class QuestionManager:
                 await self.create_button(str(option), data=str(option.id))
                 for option in row
             ]
-            for row in self.option_markup
+            for row in self.option_layout
         ]
 
     def get_options(self) -> list[str]:
         return [str(option.id if self.is_inline else option) for option in self.options]
 
     async def get_markup(
-        self, is_final: bool = False, is_skipped: bool = False
+            self, is_final: bool = False, is_skipped: bool = False
     ) -> InlineKeyboardMarkup:
         buttons = await self._create_choice_buttons()
 
@@ -81,9 +89,9 @@ class QuestionManager:
 
         # button "skip"
         if (
-            self.question.allow_skipping
-            and self.user.total_choices == 0
-            and not is_final
+                self.question.allow_skipping
+                and self.user.total_choices == 0
+                and not is_final
         ):
             skip_button = await self.create_button(
                 self.question.text_skip,

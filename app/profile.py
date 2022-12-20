@@ -33,13 +33,13 @@ table = Table(
         primary_key=True,
     ),
     Column(
-        "time_created",
+        "date_created",
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     ),
     Column(
-        "time_updated",
+        "date_modified",
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),

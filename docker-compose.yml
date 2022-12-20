@@ -13,6 +13,7 @@ services:
       - ./:/home/app/:ro
     networks:
       - easybot
+      - traefik_proxy
     command: [ "python", "-m", "app.engine" ]
     depends_on:
       redis:
@@ -40,3 +41,5 @@ volumes:
 
 networks:
   easybot:
+  traefik_proxy:
+    external: true

@@ -8,8 +8,9 @@ from telegram import InlineKeyboardButton, Message
 from telegram.ext import Application
 
 from app.exceptions import ValidationError
+from app.models import Content
 from app.models.callback import Callback
-from app.models.content import Content
+from app.models.content_validator import ContentValidator
 from app.models.option import Option
 from app.models.question import Question
 from app.profile import get_profile, Session
@@ -30,7 +31,7 @@ class User(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
     is_registered: bool = False
 
-    inputs: dict[str, Content] = Field(default_factory=dict)
+    inputs: dict[str, ContentValidator] = Field(default_factory=dict)
     question: Question | None = None
     selected_options: dict[UUID, Option] = Field(default_factory=dict)
     created_options: set[Content] = Field(default_factory=set)
@@ -58,7 +59,9 @@ class User(BaseModel):
     @property
     def answer(self) -> Any:
         answer = {
-            Content(type=self.question.content_type, value=option.value or option.name)
+            ContentValidator(
+                type=self.question.content_type, value=option.value or option.name
+            )
             for option in self.selected_options.values()
         } | self.created_options
         answer = {content.payload for content in answer}
@@ -70,7 +73,7 @@ class User(BaseModel):
     def expect(self, **inputs):
         self.inputs.update(
             {
-                k: v if isinstance(v, Content) else Content(type=v)
+                k: v if isinstance(v, ContentValidator) else ContentValidator(type=v)
                 for k, v in inputs.items()
             }
         )
@@ -90,7 +93,7 @@ class User(BaseModel):
 
     def clean_input(
         self, message: Message | None = None, callback: Callback | None = None
-    ) -> tuple[str, Any] | None:
+    ) -> tuple[str, Content] | None:
         if not (message is None) ^ (callback is None):
             raise RuntimeError("either message or callback must be specified")
         # noinspection PyUnresolvedReferences
@@ -100,15 +103,15 @@ class User(BaseModel):
             return
 
         for target, constraint in sorted(self.inputs.items(), key=lambda item: item[1]):
-            content = Content(
+            validator = ContentValidator(
                 type=constraint.type, value=text, options=constraint.options
             )
             try:
-                content.clean()
+                validator.clean()
             except ValidationError:
                 continue
             else:
-                return target, content
+                return target, validator.get_content()
 
     async def save_answer(self):
         self.last_answer = self.answer

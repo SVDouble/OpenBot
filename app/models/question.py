@@ -2,19 +2,24 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from app.models.content import Content
+from app.models import ContentType
 from app.models.option import Option
+from app.utils import get_settings
 
 __all__ = ["Question"]
+
+settings = get_settings()
 
 
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
+    bot: UUID = settings.bot_uuid
     name: str
     emoji: str = ""
+    label: str
 
-    field: str | None = None
-    content_type: Content.Type
+    content_type: ContentType
+    user_trait: UUID | None = None
 
     allow_skipping: bool = False
     allow_arbitrary_input: bool = False
@@ -24,7 +29,7 @@ class Question(BaseModel):
     text_skip: str = "Пропустить вопрос"
     text_error: str | None = None
 
-    options: list[list[Option]] = Field(default_factory=list)
+    options: list[Option] = Field(default_factory=list)
 
     def __str__(self):
         emoji = f"{self.emoji} " if self.emoji else ""
