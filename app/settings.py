@@ -1,10 +1,11 @@
-import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Literal
-from uuid import UUID
 
-from pydantic import BaseSettings, AnyUrl, PostgresDsn as BasePostgresDsn
+from pydantic import AnyUrl, BaseSettings
+from pydantic import PostgresDsn as BasePostgresDsn
+
+from app.models.bot import Bot
 
 __all__ = ["Settings"]
 
@@ -24,11 +25,7 @@ class Settings(BaseSettings):
     project_root: Path = Path(__file__).parent.parent
     static_root: Path = project_root / "static"
 
-    bot_token: str
-    bot_username: str
-    bot_uuid: UUID
-    bot_clock_interval: datetime.timedelta = datetime.timedelta(minutes=1)
-    user_clock_interval: datetime.timedelta = datetime.timedelta(minutes=1)
+    bot: Bot
 
     user_statechart_source: Path = static_root / "user.yml"
     bot_statechart_source: Path = static_root / "bot.yml"

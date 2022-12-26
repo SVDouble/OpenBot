@@ -1,12 +1,12 @@
 from typing import Any
 
 from sqlalchemy import (
-    create_engine,
+    BigInteger,
+    Column,
+    DateTime,
     MetaData,
     Table,
-    Column,
-    BigInteger,
-    DateTime,
+    create_engine,
     func,
 )
 from sqlalchemy.ext.automap import automap_base
@@ -22,7 +22,7 @@ engine = create_engine(settings.postgres_url)
 Session = sessionmaker(engine)
 
 meta = MetaData()
-table_name = f"profiles@{settings.bot_username}"
+table_name = f"profiles@{settings.bot.username}"
 table = Table(
     table_name,
     meta,

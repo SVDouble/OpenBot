@@ -8,7 +8,7 @@ __all__ = ["Repository"]
 
 from telegram.ext import Application
 
-from app.models import User, StateChart, Callback
+from app.models import Callback, Statechart, User
 from app.utils import get_settings
 
 settings = get_settings()
@@ -50,7 +50,7 @@ class Repository:
             user.interpreter.app = app
             return user
         user = User(telegram_id=telegram_id)
-        statechart = StateChart.load(settings.user_statechart_source)
+        statechart = Statechart.load(settings.user_statechart_source)
         user.interpreter = UserInterpreter(user, app, statechart)
         await user.interpreter.dispatch_event("init")
         await user.save()

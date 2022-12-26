@@ -2,16 +2,16 @@ import asyncio
 
 from telegram.ext import (
     Application,
-    MessageHandler,
-    filters,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
-    CallbackQueryHandler,
+    MessageHandler,
+    filters,
 )
 
-from app.bot import handle_message, commands, handle_command, handle_callback_query
-from app.models import StateChart, User
-from app.utils import get_logger, get_settings, get_repository
+from app.bot import commands, handle_callback_query, handle_command, handle_message
+from app.models import Statechart, User
+from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
 settings = get_settings()
@@ -21,7 +21,7 @@ repo = get_repository()
 async def run_engine_logic(app: Application):
     from app.engine import BotInterpreter
 
-    statechart = StateChart.load(settings.bot_statechart_source)
+    statechart = Statechart.load(settings.bot_statechart_source)
     engine = BotInterpreter(app, statechart)
     asyncio.create_task(engine.run())
 
@@ -43,7 +43,7 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> No
 def main():
     app = (
         Application.builder()
-        .token(settings.bot_token)
+        .token(settings.bot.token)
         .post_init(run_engine_logic)
         .build()
     )
@@ -56,5 +56,7 @@ def main():
             CallbackQueryHandler(handle_callback_query),
         ]
     )
-    app.job_queue.run_repeating(run_user_logic, interval=settings.user_clock_interval)
+    app.job_queue.run_repeating(
+        run_user_logic, interval=settings.bot.user_clock_interval
+    )
     app.run_polling()

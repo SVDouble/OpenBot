@@ -13,7 +13,7 @@ settings = get_settings()
 
 class Option(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    bot: UUID = settings.bot_uuid
+    bot: UUID = settings.bot.id
     name: str
     emoji: str = ""
     label: str = ""

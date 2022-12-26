@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Self, Any
+from typing import Any, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -13,8 +13,8 @@ from app.models.callback import Callback
 from app.models.content_validator import ContentValidator
 from app.models.option import Option
 from app.models.question import Question
-from app.profile import get_profile, Session
-from app.utils import get_logger, get_settings, get_repository
+from app.profile import Session, get_profile
+from app.utils import get_logger, get_repository, get_settings
 
 __all__ = ["User"]
 
@@ -28,21 +28,20 @@ class User(BaseModel):
         keep_untouched = (cached_property,)
 
     telegram_id: int
-    data: dict[str, Any] = Field(default_factory=dict)
     is_registered: bool = False
+    answers: dict[str, Any] = Field(default_factory=dict)
 
     inputs: dict[str, ContentValidator] = Field(default_factory=dict)
     question: Question | None = None
     selected_options: dict[UUID, Option] = Field(default_factory=dict)
     created_options: set[Content] = Field(default_factory=set)
     validate_answer: bool = False
-    last_answer: Any | None = None
     is_reply_keyboard_set: bool = False
 
     interpreter: Any = None
 
     def __getitem__(self, item):
-        return self.data[item]
+        return self.answers[item]
 
     @cached_property
     def _session(self) -> SqlSession:
@@ -60,11 +59,12 @@ class User(BaseModel):
     def answer(self) -> Any:
         answer = {
             ContentValidator(
-                type=self.question.content_type, value=option.value or option.name
-            )
+                type=self.question.content_type,
+                value=option.content.value,
+            ).get_content()
             for option in self.selected_options.values()
         } | self.created_options
-        answer = {content.payload for content in answer}
+        answer = {content.value for content in answer}
         return answer if self.question.allow_multiple_choices else answer.pop()
 
     async def save(self):
@@ -114,9 +114,9 @@ class User(BaseModel):
                 return target, validator.get_content()
 
     async def save_answer(self):
-        self.last_answer = self.answer
-        if (field := self.question.field) is not None:
-            self.data[field] = self.last_answer
+        self.answers[self.question.label] = self.answer
+        if trait := self.question.user_trait:
+            setattr(self.profile, trait.column, self.answer)
 
     @classmethod
     async def load(cls, telegram_id: int, app: Application) -> Self:

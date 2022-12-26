@@ -1,5 +1,5 @@
 import datetime
-from enum import unique, Enum
+from enum import Enum, unique
 from typing import Any
 from uuid import UUID
 
@@ -29,9 +29,15 @@ class ContentType(str, Enum):
     FILE = "file"
 
 
+_float_type = float
+
+
 class Content(BaseModel):
-    bot: UUID = settings.bot_uuid
-    owner: UUID
+    class Config:
+        frozen = True
+
+    bot: UUID = settings.bot.id
+    owner: UUID | None = None
     type: ContentType
     metadata: Json | None = None
     date_created: datetime.datetime = datetime.datetime.utcnow()
@@ -39,7 +45,7 @@ class Content(BaseModel):
     text: str | None = None
     boolean: bool | None = None
     integer: int | None = None
-    float: float | None = None
+    float: _float_type | None = None
     number_range: dict | None = None
     date: datetime.datetime | None = None
     date_range: dict | None = None
@@ -53,3 +59,6 @@ class Content(BaseModel):
     @property
     def value(self) -> Any | None:
         return getattr(self, self.type.value)
+
+    def __repr__(self) -> str:
+        return f"('{self.type.value}', {self.value!r})"

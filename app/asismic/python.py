@@ -1,6 +1,6 @@
 import ast
 from types import CodeType
-from typing import Any, Dict, List, Optional, Mapping, Iterator
+from typing import Any, Dict, Iterator, List, Mapping, Optional
 
 from sismic.code.python import FrozenContext
 from sismic.exceptions import CodeEvaluationError

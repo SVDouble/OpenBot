@@ -5,6 +5,7 @@ from itertools import combinations
 from typing import (
     Any,
     Callable,
+    Coroutine,
     Dict,
     Iterable,
     List,
@@ -14,7 +15,6 @@ from typing import (
     Tuple,
     Union,
     cast,
-    Coroutine,
 )
 
 from sismic.clock import Clock, SimulatedClock, SynchronizedClock

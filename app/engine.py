@@ -1,17 +1,17 @@
 import asyncio
 import datetime
-from typing import Mapping, Any, Callable
+from typing import Any, Callable, Mapping
 
 import sismic.model
 from sismic.clock import UtcClock
 from sismic.io.datadict import import_from_dict
-from telegram import ReplyKeyboardRemove, ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.asismic.interpreter import AsyncInterpreter
 from app.asismic.python import AsyncPythonEvaluator
-from app.models import StateChart, User
+from app.models import Statechart, User
 from app.utils import get_logger, get_settings
 
 __all__ = ["BaseInterpreter", "UserInterpreter", "BotInterpreter"]
@@ -65,7 +65,7 @@ class BaseEvaluator(AsyncPythonEvaluator):
 class BaseInterpreter(AsyncInterpreter):
     def __init__(
         self,
-        statechart: StateChart,
+        statechart: Statechart,
         evaluator_klass: Callable[..., BaseEvaluator] = BaseEvaluator,
     ):
         statechart = import_from_dict(dict(statechart=statechart.dict(by_alias=True)))
@@ -108,8 +108,8 @@ class BaseInterpreter(AsyncInterpreter):
 class UserEvaluator(BaseEvaluator):
     @classmethod
     def _get_imports(cls) -> dict:
-        from app.questions import QuestionManager
         import app.models as models
+        from app.questions import QuestionManager
 
         return {
             "QuestionManager": QuestionManager,
@@ -127,12 +127,13 @@ class UserEvaluator(BaseEvaluator):
             "question": user.question,
             "expect": user.expect,
             "release": user.release,
+            "answers": user.answers,
             "debug": logger.debug,
         }
 
 
 class UserInterpreter(BaseInterpreter):
-    def __init__(self, user: User, app: Application, statechart: StateChart):
+    def __init__(self, user: User, app: Application, statechart: Statechart):
         super().__init__(statechart, evaluator_klass=UserEvaluator)
         self.user = user
         self.app = app
@@ -158,10 +159,10 @@ class BotEvaluator(BaseEvaluator):
 
 
 class BotInterpreter(BaseInterpreter):
-    def __init__(self, app: Application, statechart: StateChart):
+    def __init__(self, app: Application, statechart: Statechart):
         super().__init__(statechart, evaluator_klass=BotEvaluator)
         self.app = app
-        self._clock_interval = settings.bot_clock_interval
+        self._clock_interval = settings.bot.bot_clock_interval
         self._last_activity_time = datetime.datetime.min
         self._is_active = False
 

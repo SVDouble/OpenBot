@@ -2,8 +2,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from app.models import ContentType
+from app.models.content import ContentType
 from app.models.option import Option
+from app.models.trait import Trait
 from app.utils import get_settings
 
 __all__ = ["Question"]
@@ -13,13 +14,13 @@ settings = get_settings()
 
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    bot: UUID = settings.bot_uuid
+    bot: UUID = settings.bot.id
     name: str
     emoji: str = ""
     label: str
 
     content_type: ContentType
-    user_trait: UUID | None = None
+    user_trait: Trait | None = None
 
     allow_skipping: bool = False
     allow_arbitrary_input: bool = False

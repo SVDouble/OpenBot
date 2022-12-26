@@ -1,12 +1,13 @@
 from datetime import datetime
 from functools import cached_property, total_ordering
 from re import sub
-from typing import Any, Callable, Type, Self, Sequence
+from typing import Any, Callable, Self, Sequence, Type
 
 from pydantic import BaseModel, PrivateAttr
 
 from app.exceptions import ValidationError
-from app.models import ContentType as CT, Content
+from app.models import Content
+from app.models import ContentType as CT
 from app.utils import get_settings
 
 __all__ = ["ContentValidator"]

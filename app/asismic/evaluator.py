@@ -1,8 +1,8 @@
 import abc
-from typing import Any, Optional, Iterable, List, Mapping
+from typing import Any, Iterable, List, Mapping, Optional
 
 from sismic.exceptions import CodeEvaluationError
-from sismic.model import Statechart, StateMixin, Transition, Event
+from sismic.model import Event, Statechart, StateMixin, Transition
 
 __all__ = ["AsyncEvaluator"]
 

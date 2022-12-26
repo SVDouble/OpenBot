@@ -1,8 +1,8 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from app.models import User, Callback
-from app.utils import get_logger, get_settings, get_repository
+from app.models import Callback, User
+from app.utils import get_logger, get_repository, get_settings
 
 __all__ = ["handle_message", "handle_command", "handle_callback_query", "commands"]
 

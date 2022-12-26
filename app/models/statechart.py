@@ -1,11 +1,11 @@
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Any
+from typing import Any, Literal
 
 import ruamel.yaml
 from pydantic import BaseModel, Field, ValidationError, validator
 
-__all__ = ["Event", "Contract", "Transition", "State", "StateChart"]
+__all__ = ["Event", "Contract", "Transition", "State", "Statechart"]
 
 
 class Event(BaseModel):
@@ -55,7 +55,7 @@ class State(BaseModel):
     memory: str | None
 
 
-class StateChart(BaseModel):
+class Statechart(BaseModel):
     name: str
     preamble: str | None
     root_state: State = Field(alias="root state")
