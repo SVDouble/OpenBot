@@ -1,5 +1,4 @@
 from collections import defaultdict
-from functools import partial
 from typing import Any
 
 from telegram import (
@@ -32,7 +31,7 @@ class QuestionManager:
         )
         self.is_inline = self.question.allow_multiple_choices or user.is_registered
         for option in self.options:
-            option.is_active = partial(self.is_option_selected, option)
+            option.is_active = option.id in user.selected_options.keys()
 
     @staticmethod
     def _generate_option_layout(options: list[Option]) -> list[list[Option]]:
@@ -43,9 +42,6 @@ class QuestionManager:
             [layout[row][column] for column in sorted(layout[row].keys())]
             for row in sorted(layout.keys())
         ]
-
-    def is_option_selected(self, option: Option) -> bool:
-        return option.id in self.user.selected_options.keys()
 
     async def create_button(self, name: str, data: Any, **kwargs):
         if self.is_inline:
@@ -121,6 +117,7 @@ class QuestionManager:
             del self.user.selected_options[uuid]
         else:
             self.user.selected_options[uuid] = option
+        option.is_active = not option.is_active
 
     @property
     def is_answer_valid(self) -> bool:

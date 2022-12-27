@@ -15,7 +15,8 @@ python-telegram-bot = { git = "https://github.com/python-telegram-bot/python-tel
 redis = "^4.4.0"
 SQLAlchemy = { version = "2.0.0b4", extras = ["asyncio"] }
 psycopg = "^3.1.6"
-httpx = "^0.23.1"
+httpx = { extras = ["http2"], version = "^0.23.1" }
+authlib = "^1.2.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"

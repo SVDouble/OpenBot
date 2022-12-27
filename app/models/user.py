@@ -30,6 +30,7 @@ class User(BaseModel):
     telegram_id: int
     is_registered: bool = False
     answers: dict[str, Any] = Field(default_factory=dict)
+    interpreter_state: dict = Field(default_factory=dict, exclude=True)
 
     inputs: dict[str, ContentValidator] = Field(default_factory=dict)
     question: Question | None = None
@@ -38,7 +39,7 @@ class User(BaseModel):
     validate_answer: bool = False
     is_reply_keyboard_set: bool = False
 
-    interpreter: Any = None
+    interpreter: Any = Field(default_factory=None, exclude=True)
 
     def __getitem__(self, item):
         return self.answers[item]
@@ -66,9 +67,6 @@ class User(BaseModel):
         } | self.created_options
         answer = {content.value for content in answer}
         return answer if self.question.allow_multiple_choices else answer.pop()
-
-    async def save(self):
-        await repo.save_user(self)
 
     def expect(self, **inputs):
         self.inputs.update(
@@ -124,6 +122,15 @@ class User(BaseModel):
         repo = repo or get_repository()
         return await repo.load_user(telegram_id, app)
 
+    def __getstate__(self):
+        if self.interpreter:
+            self.interpreter_state = self.interpreter.state
+        state = super().__getstate__()
+        data = state["__dict__"].copy()
+        del data["interpreter"]
+        state["__dict__"] = data
+        return state
+
     async def __aenter__(self) -> Self:
         return self
 
@@ -134,4 +141,4 @@ class User(BaseModel):
             session.commit()
             session.close()
         cache.pop("profile", None)
-        await self.save()
+        await repo.save_user(self)

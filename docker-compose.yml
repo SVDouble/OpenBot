@@ -11,9 +11,12 @@ services:
       - .env
     volumes:
       - ./:/home/app/:ro
+      - ${HOME}/.local/share/mkcert/rootCA.pem:/certs/rootCA.pem:ro
     networks:
       - easybot
       - traefik_proxy
+    external_links:
+      - traefik:console.localhost
     command: [ "python", "-m", "app.engine" ]
     depends_on:
       redis:

@@ -1,4 +1,3 @@
-from typing import Callable
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -22,8 +21,8 @@ class Option(BaseModel):
     row: int
     column: int
 
-    is_active: Callable[[], bool] | None = None
-    is_dummy: bool = False
+    is_active: bool = Field(default=False, exclude=True)
+    is_dummy: bool = Field(default=False, exclude=True)
 
     def __init__(self, **kwargs):
         if "content" not in kwargs:
@@ -39,6 +38,6 @@ class Option(BaseModel):
 
     @property
     def prefix(self):
-        if self.is_active and self.is_active():
+        if self.is_active:
             return "✅"
         return self.emoji

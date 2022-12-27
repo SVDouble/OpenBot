@@ -29,11 +29,6 @@ class BaseEvaluator(AsyncPythonEvaluator):
     def context(self) -> dict:
         return self._context
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state["_context"] = {}
-        return state
-
     async def _get_shared_context(self) -> dict[str, Any]:
         return {}
 
@@ -78,10 +73,14 @@ class BaseInterpreter(AsyncInterpreter):
             clock=UtcClock(),
         )
         self.attach(self._event_callback)
+        self._is_initialized = False
 
     async def dispatch_event(
         self, event: str | sismic.model.Event
     ) -> list[sismic.model.MacroStep]:
+        if not self._is_initialized:
+            await self._evaluator.execute_statechart(self._statechart)
+            self._is_initialized = True
         self.queue(event)
         steps = await self.execute(max_steps=42)
         return steps
@@ -94,15 +93,21 @@ class BaseInterpreter(AsyncInterpreter):
     def context(self) -> dict:
         return self._evaluator.context
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["_evaluator"]
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__ = state
-        self._evaluator = self._evaluator_klass(self)
-        asyncio.create_task(self._evaluator.execute_statechart(self._statechart))
+    @property
+    def state(self) -> dict:
+        keys = {
+            "_ignore_contract",
+            "_initialized",
+            "_time",
+            "_memory",
+            "_configuration",
+            "_entry_time",
+            "_idle_time",
+            "_sent_events",
+            "_internal_queue",
+            "_external_queue",
+        }
+        return {k: v for k, v in self.__dict__.items() if k in keys}
 
 
 class UserEvaluator(BaseEvaluator):
@@ -137,12 +142,6 @@ class UserInterpreter(BaseInterpreter):
         super().__init__(statechart, evaluator_klass=UserEvaluator)
         self.user = user
         self.app = app
-
-    def __getstate__(self):
-        state = super().__getstate__()
-        del state["user"]
-        del state["app"]
-        return state
 
 
 class BotEvaluator(BaseEvaluator):

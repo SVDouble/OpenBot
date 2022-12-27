@@ -2,7 +2,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AnyUrl, BaseSettings
+from pydantic import AnyUrl, BaseSettings, SecretStr
 from pydantic import PostgresDsn as BasePostgresDsn
 
 from app.models.bot import Bot
@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     postgres_url: PostgresDsn
     redis_url: AnyUrl
     redis_db: int
+
+    backend_api_url: AnyUrl
+    backend_api_verify: Path | bool = True
+    backend_api_username: SecretStr
+    backend_api_password: SecretStr
 
     inline_half_width = 15
     inline_full_width = 36

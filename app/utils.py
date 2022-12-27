@@ -19,7 +19,7 @@ def get_settings():
 
 @lru_cache()
 def get_repository():
-    from app.redis import Repository
+    from app.repository import Repository
 
     return Repository()
 
