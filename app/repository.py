@@ -10,7 +10,7 @@ __all__ = ["Repository"]
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from telegram.ext import Application
 
-from app.models import Callback, Statechart, User
+from app.models import Callback, Statechart, ProgramState
 from app.utils import get_settings, get_logger
 
 settings = get_settings()
@@ -61,40 +61,53 @@ class Repository:
     async def delete_pickle(self, key: str):
         await self.raw_db.delete(key)
 
-    async def save_user(self, user: User):
-        await self.set_pickle(f"user:{user.telegram_id}", user)
-        await self.db.sadd("users", user.telegram_id)
+    @classmethod
+    def get_state_key(cls, telegram_id: int, state_id: str | UUID) -> str:
+        return f"{telegram_id}:state:{state_id}"
 
-    async def load_user(self, telegram_id: int, app: Application) -> User:
+    @classmethod
+    def get_callback_key(cls, state: ProgramState, callback_id: UUID | str) -> str:
+        return f"{cls.get_state_key(state.user.telegram_id, state.id)}:callback:{callback_id}"
+
+    async def save_state(self, state: ProgramState):
+        telegram_id = state.user.telegram_id
+        await self.set_pickle(self.get_state_key(telegram_id, state.id), state)
+        await self.set_pickle(self.get_state_key(telegram_id, "latest"), state)
+        await self.db.sadd("users", state.user.telegram_id)
+
+    async def load_state(
+        self, telegram_id: int, app: Application, state_id: UUID | str = "latest"
+    ) -> ProgramState:
         from app.engine import UserInterpreter
 
-        if not (user := await self.get_pickle(f"user:{telegram_id}")):
-            user = user or User(telegram_id=telegram_id)
+        key = self.get_state_key(telegram_id, state_id)
+        if (user := await self.get_pickle(key)) is None:
+            if state_id != "latest":
+                raise KeyError(f"State {key} does not exist")
+            user = user or ProgramState(telegram_id=telegram_id)
         statechart = await self.get_statechart(settings.bot.statechart)
         user.interpreter = UserInterpreter(user, app, statechart)
         user.interpreter.__dict__.update(user.interpreter_state)
-        await self.save_user(user)
+        await self.save_state(user)
         return user
 
-    async def remove_user(self, telegram_id: int):
-        await self.db.delete(f"user:{telegram_id}")
+    async def reset_state(self, telegram_id: int):
+        # TODO: remove obsolete states?
+        await self.db.delete(self.get_state_key(telegram_id, "latest"))
 
     async def get_user_ids(self) -> set[int]:
         return set(int(uid) for uid in await self.db.smembers("users"))
 
-    async def create_callback(self, callback: Callback, user: int | User):
-        telegram_id = user if isinstance(user, int) else user.telegram_id
-        await self.set_pickle(f"callback:{telegram_id}:{callback.id}", callback)
+    async def create_callback(self, state: ProgramState, callback: Callback):
+        await self.set_pickle(self.get_callback_key(state, callback.id), callback)
 
     async def get_callback(
-        self, callback_id: UUID | str, user: int | User
+        self, state: ProgramState, callback_id: UUID | str
     ) -> Callback | None:
-        telegram_id = user if isinstance(user, int) else user.telegram_id
-        return await self.get_pickle(f"callback:{telegram_id}:{callback_id}")
+        return await self.get_pickle(self.get_callback_key(state, callback_id))
 
-    async def remove_callback(self, callback_id: UUID | str, user: int | User):
-        telegram_id = user if isinstance(user, int) else user.telegram_id
-        await self.delete_pickle(f"callback:{telegram_id}:{callback_id}")
+    async def remove_callback(self, state: ProgramState, callback_id: UUID | str):
+        await self.delete_pickle(self.get_callback_key(state, callback_id))
 
     async def get_statechart(self, statechart_id) -> Statechart:
         redis_key = f"statechart:{statechart_id}"

@@ -11,7 +11,7 @@ from telegram.ext import Application
 
 from app.asismic.interpreter import AsyncInterpreter
 from app.asismic.python import AsyncPythonEvaluator
-from app.models import Statechart, User
+from app.models import Statechart, ProgramState
 from app.utils import get_logger, get_settings
 
 __all__ = ["BaseInterpreter", "UserInterpreter", "BotInterpreter"]
@@ -128,19 +128,22 @@ class UserEvaluator(BaseEvaluator):
         interpreter: UserInterpreter = self._interpreter
         return {
             "bot": interpreter.app.bot,
-            "user": (user := interpreter.user),
-            "question": user.question,
-            "expect": user.expect,
-            "release": user.release,
-            "answers": user.answers,
+            "state": (state := interpreter.program_state),
+            "user": state.user,
+            "question": state.question,
+            "answers": state.answers,
             "debug": logger.debug,
+            "expect": state.expect,
+            "release": state.release,
+            "clean_input": state.clean_input,
+            "save_answer": state.save_answer,
         }
 
 
 class UserInterpreter(BaseInterpreter):
-    def __init__(self, user: User, app: Application, statechart: Statechart):
+    def __init__(self, state: ProgramState, app: Application, statechart: Statechart):
         super().__init__(statechart, evaluator_klass=UserEvaluator)
-        self.user = user
+        self.program_state = state
         self.app = app
 
 

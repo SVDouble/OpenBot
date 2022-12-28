@@ -27,7 +27,6 @@ class Settings(BaseSettings):
 
     bot: Bot
 
-    user_statechart_source: Path = static_root / "user.yml"
     bot_statechart_source: Path = static_root / "bot.yml"
 
     postgres_url: PostgresDsn

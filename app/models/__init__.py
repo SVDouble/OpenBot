@@ -7,6 +7,7 @@ from app.models.question import Question
 from app.models.statechart import *
 from app.models.trait import Trait
 from app.models.user import User
+from app.models.program_state import ProgramState
 
 __all__ = [
     "Event",
@@ -15,6 +16,7 @@ __all__ = [
     "State",
     "Statechart",
     "User",
+    "ProgramState",
     "Question",
     "Option",
     "Callback",

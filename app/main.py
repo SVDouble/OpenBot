@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 from app.bot import commands, handle_callback_query, handle_command, handle_message
-from app.models import Statechart, User
+from app.models import Statechart, ProgramState
 from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
@@ -32,7 +32,7 @@ async def run_user_logic(app: Application):
     logger.info(f"running user logic, users={await repo.get_user_ids()}")
     reload_profile_class()
     for uid in await repo.get_user_ids():
-        user = await User.load(uid, app)
+        user = await ProgramState.load(uid, app)
         await user.interpreter.dispatch_event("clock")
 
 

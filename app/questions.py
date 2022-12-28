@@ -10,7 +10,7 @@ from telegram import (
 
 __all__ = ["QuestionManager"]
 
-from app.models import Option, User
+from app.models import Option, ProgramState
 from app.utils import get_logger, get_settings
 
 logger = get_logger(__name__)
@@ -22,16 +22,18 @@ class QuestionManager:
     action_save_answer = "save answer"
     action_create_option = "create option"
 
-    def __init__(self, user: User):
-        self.user: User = user
-        self.question = user.question
+    def __init__(self, state: ProgramState):
+        self.state: ProgramState = state
+        self.question = state.question
         self.options: list[Option] = self.question.options
         self.option_layout: list[list[Option]] = self._generate_option_layout(
             self.question.options
         )
-        self.is_inline = self.question.allow_multiple_choices or user.is_registered
+        self.is_inline = (
+            self.question.allow_multiple_choices or state.user.is_registered
+        )
         for option in self.options:
-            option.is_active = option.id in user.selected_options.keys()
+            option.is_active = option.id in state.selected_options.keys()
 
     @staticmethod
     def _generate_option_layout(options: list[Option]) -> list[list[Option]]:
@@ -45,7 +47,7 @@ class QuestionManager:
 
     async def create_button(self, name: str, data: Any, **kwargs):
         if self.is_inline:
-            return await self.user.make_inline_button(name, data=data, **kwargs)
+            return await self.state.make_inline_button(name, data=data, **kwargs)
         return KeyboardButton(name, **kwargs)
 
     def _create_markup(self, buttons: list[list]):
@@ -60,7 +62,7 @@ class QuestionManager:
             return "Вопрос пропущен"
         if is_final:
             return "📩 Отправлено"
-        if self.user.selected_options:
+        if self.state.selected_options:
             return "Отправить"
         return "Ничего из перечисленного"
 
@@ -90,7 +92,7 @@ class QuestionManager:
         # button "skip"
         if (
             self.question.allow_skipping
-            and self.user.total_choices == 0
+            and self.state.total_choices == 0
             and not is_final
         ):
             skip_button = await self.create_button(
@@ -113,14 +115,14 @@ class QuestionManager:
     def toggle_option(self, option: str | Option):
         if isinstance(option, str):
             option = self.parse_option(option)
-        if (uuid := option.id) in self.user.selected_options:
-            del self.user.selected_options[uuid]
+        if (uuid := option.id) in self.state.selected_options:
+            del self.state.selected_options[uuid]
         else:
-            self.user.selected_options[uuid] = option
+            self.state.selected_options[uuid] = option
         option.is_active = not option.is_active
 
     @property
     def is_answer_valid(self) -> bool:
         if self.question.allow_empty_answers:
             return True
-        return self.user.total_choices > 0
+        return self.state.total_choices > 0
