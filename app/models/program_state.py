@@ -8,11 +8,12 @@ from telegram import InlineKeyboardButton, Message
 from telegram.ext import Application
 
 from app.exceptions import ValidationError
-from app.models import Content, User
 from app.models.callback import Callback
+from app.models.content import Content
 from app.models.content_validator import ContentValidator
 from app.models.option import Option
 from app.models.question import Question
+from app.models.user import User
 from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
 

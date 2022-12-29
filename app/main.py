@@ -46,17 +46,22 @@ async def run_bot_logic(app: Application, *, update_trigger: asyncio.Event):
             task = asyncio.create_task(engine.run())
 
 
-async def run_user_logic(app: Application):
+async def post_init(app: Application, *, update_trigger: asyncio.Event):
+    asyncio.create_task(run_bot_logic(app, update_trigger=update_trigger))
+
+
+async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
     from app.profile import reload_profile_class
 
     logger.info(f"running user logic, users={await repo.get_user_ids()}")
     reload_profile_class()
     for uid in await repo.get_user_ids():
-        state = await ProgramState.load(uid, app)
+        state = await ProgramState.load(uid, context.application)
         await state.interpreter.dispatch_event("clock")
 
 
-async def update_bot_config(_: Application, trigger: asyncio.Event):
+async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):
+    trigger: asyncio.Event = context.job.data["trigger"]
     settings.bot = await repo.get_bot(settings.bot.id)
     if not trigger.is_set():
         trigger.set()
@@ -67,11 +72,14 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 def main():
+    logger.info("Initializing the bot...")
+    logger.info("Using the following settings: ")
+    logger.info(settings)
     update_trigger = asyncio.Event()
     app = (
         Application.builder()
-        .token(settings.bot.token)
-        .post_init(partial(run_bot_logic), update_trigger=update_trigger)
+        .token(settings.bot.token.get_secret_value())
+        .post_init(partial(post_init, update_trigger=update_trigger))
         .build()
     )
     app.add_error_handler(handle_error)
@@ -90,6 +98,7 @@ def main():
     app.job_queue.run_repeating(
         update_bot_config,
         interval=settings.cache_ex_bots,
-        job_kwargs={"trigger": update_trigger},
+        data={"trigger": update_trigger},
     )
+    logger.info("Polling has started UwU")
     app.run_polling()

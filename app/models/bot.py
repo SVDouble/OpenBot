@@ -1,7 +1,7 @@
 import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 __all__ = ["Bot"]
 
@@ -10,7 +10,7 @@ class Bot(BaseModel):
     id: UUID
     name: str
     username: str
-    token: str
+    token: SecretStr
     statechart: UUID
     date_created: datetime.datetime
 

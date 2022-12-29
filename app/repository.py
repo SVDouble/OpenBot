@@ -1,6 +1,6 @@
 import functools
 import pickle
-from typing import Any, Callable
+from typing import Any, Callable, Self
 from uuid import UUID
 
 import httpx
@@ -36,6 +36,7 @@ def init_redis_client(decode_responses=True) -> redis.Redis:
     )
 
 
+# noinspection PyMethodMayBeStatic
 class Repository:
     def __init__(self):
         self.db = init_redis_client()
@@ -71,32 +72,25 @@ class Repository:
     async def delete_pickle(self, key: str):
         await self.raw_db.delete(key)
 
-    @classmethod
-    def get_state_key(cls, telegram_id: int, state_id: str | UUID) -> str:
+    def get_state_key(self, telegram_id: int, state_id: str | UUID) -> str:
         return f"{telegram_id}:state:{state_id}"
 
-    @classmethod
-    def get_callback_key(cls, state: ProgramState, callback_id: UUID | str) -> str:
-        return f"{cls.get_state_key(state.user.telegram_id, state.id)}:callback:{callback_id}"
+    def get_callback_key(self, state: ProgramState, callback_id: UUID | str) -> str:
+        return f"{self.get_state_key(state.user.telegram_id, state.id)}:callback:{callback_id}"
 
-    @classmethod
-    def get_account_key(cls, telegram_id: int) -> str:
+    def get_account_key(self, telegram_id: int) -> str:
         return f"{telegram_id}:account"
 
-    @classmethod
-    def get_user_key(cls, telegram_id: int) -> str:
+    def get_user_key(self, telegram_id: int) -> str:
         return f"{telegram_id}:user"
 
-    @classmethod
-    def get_referral_link_key(cls, alias: str) -> str:
-        return f"ref:{alias}"
+    def get_referral_link_key(self, alias: str = "") -> str:
+        return f"ref:{alias!r}"  # alias might be empty
 
-    @classmethod
-    def get_bot_key(cls, bot_id: UUID) -> str:
+    def get_bot_key(self, bot_id: UUID) -> str:
         return f"bot:{bot_id}"
 
-    @classmethod
-    def get_statechart_key(cls, statechart_id: UUID) -> str:
+    def get_statechart_key(self, statechart_id: UUID) -> str:
         return f"statechart:{statechart_id}"
 
     async def save_state(self, state: ProgramState):
@@ -147,16 +141,17 @@ class Repository:
     async def remove_callback(self, state: ProgramState, callback_id: UUID | str):
         await self.delete_pickle(self.get_callback_key(state, callback_id))
 
-    def cached(self, *, key: str | Callable, ex: int):
+    @staticmethod
+    def cached(*, key: str | Callable, ex: int):
         def decorator(fetch_obj):
             @functools.wraps(fetch_obj)
-            async def wrapper(*args, **kwargs):
-                redis_key = key if isinstance(key, str) else key(*args, **kwargs)
+            async def wrapper(self: Self, *args, **kwargs):
+                redis_key = key if isinstance(key, str) else key(self, *args, **kwargs)
 
                 if (obj := await self.get_pickle(redis_key)) is not None:
                     return obj
-                if (obj := await fetch_obj(*args, **kwargs)) is not None:
-                    await self.set_pickle(key, obj, ex=ex)
+                if (obj := await fetch_obj(self, *args, **kwargs)) is not None:
+                    await self.set_pickle(redis_key, obj, ex=ex)
                     return obj
 
             return wrapper
@@ -192,7 +187,7 @@ class Repository:
         params = {"alias": alias} if alias else {"is_default": True}
         response = await self.httpx.get("/referral_links/", params=params)
         if response.is_success and (data := response.json()):
-            return ReferralLink.parse_obj(data)
+            return ReferralLink.parse_obj(data[0])
 
     @cached(key=get_user_key, ex=settings.cache_ex_users)
     async def get_user(self, telegram_id: int) -> User:
@@ -216,18 +211,19 @@ class Repository:
         response = await self.httpx.post(
             "/user/",
             json={
-                "account": account.id,
+                "account": str(account.id),
                 "telegram_id": telegram_id,
-                "referral_link": link,
+                "referral_link": str(link.id),
             },
         )
         if response.is_success and (data := response.json()):
             return User.parse_obj(data)
 
-        PublicError("Couldn't register the user")
+        raise PublicError("Couldn't register the user")
 
     @cached(key=get_bot_key, ex=settings.cache_ex_bots)
     async def get_bot(self, bot_id: UUID) -> Bot | None:
         response = await self.httpx.get(f"/bots/{bot_id}/")
         if response.is_success and (data := response.json()):
             return Bot.parse_obj(data)
+        raise PublicError("Couldn't get the bot info")
