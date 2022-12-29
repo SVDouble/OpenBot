@@ -24,7 +24,7 @@ class User(BaseModel):
     first_name: str
     last_name: str
     bot: UUID
-    role: Role
+    role: UUID
     referral_link: UUID
     is_staff: bool
     is_active: bool

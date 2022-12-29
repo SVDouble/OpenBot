@@ -9,6 +9,7 @@ import redis.asyncio as redis
 __all__ = ["Repository"]
 
 from authlib.integrations.httpx_client import AsyncOAuth2Client
+from httpx import AsyncClient
 from telegram.ext import Application
 
 from app.exceptions import AccessDeniedError, PublicError
@@ -41,14 +42,16 @@ class Repository:
     def __init__(self):
         self.db = init_redis_client()
         self.raw_db = init_redis_client(decode_responses=False)
-        self.httpx = AsyncOAuth2Client(
+        self.httpx = self._get_httpx_client()
+
+    def _get_httpx_client(self) -> AsyncClient:
+        client = AsyncOAuth2Client(
             token_endpoint="/token/refresh/",
             # non-auth params
             http2=True,
             base_url=settings.backend_api_url,
             verify=settings.backend_api_verify,
         )
-
         tokens = httpx.post(
             f"{settings.backend_api_url}/token/",
             json={
@@ -57,10 +60,11 @@ class Repository:
             },
             verify=settings.backend_api_verify,
         ).json()
-        self.httpx.token = {
+        client.token = {
             "refresh_token": tokens["refresh"],
             "access_token": tokens["access"],
         }
+        return client
 
     async def get_pickle(self, key: str) -> Any | None:
         if data := await self.raw_db.get(key):
@@ -185,6 +189,7 @@ class Repository:
     @cached(key=get_referral_link_key, ex=settings.cache_ex_statecharts)
     async def get_referral_link(self, alias: str = "") -> ReferralLink | None:
         params = {"alias": alias} if alias else {"is_default": True}
+        params["bot"] = str(settings.bot.id)
         response = await self.httpx.get("/referral_links/", params=params)
         if response.is_success and (data := response.json()):
             return ReferralLink.parse_obj(data[0])
@@ -201,7 +206,8 @@ class Repository:
             },
         )
         if response.is_success and (data := response.json()):
-            return User.parse_obj(data[0])
+            user_id = data[0]["id"]
+            return User.parse_obj((await self.httpx.get(f"/users/{user_id}/")).json())
 
         # create a new user
         account = await self.get_account(telegram_id)
@@ -209,10 +215,12 @@ class Repository:
         if link is None:
             raise PublicError("Registration is not available at the moment")
         response = await self.httpx.post(
-            "/user/",
+            "/users/",
             json={
                 "account": str(account.id),
                 "telegram_id": telegram_id,
+                "bot": str(link.bot),
+                "role": str(link.target_role),
                 "referral_link": str(link.id),
             },
         )

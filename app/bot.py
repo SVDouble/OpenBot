@@ -37,7 +37,7 @@ commands = {"reset": reset, "ping": ping, "state": get_state}
 # handlers
 
 
-def with_state(
+def modifies_state(
     f: Callable[[Update, ContextTypes.DEFAULT_TYPE, ProgramState], Coroutine]
 ):
     @wraps(f)
@@ -51,7 +51,7 @@ def with_state(
     return wrapper
 
 
-@with_state
+@modifies_state
 async def handle_message(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -61,7 +61,7 @@ async def handle_message(
     await state.interpreter.dispatch_event("received message")
 
 
-@with_state
+@modifies_state
 async def handle_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -74,6 +74,7 @@ async def handle_command(
     await state.interpreter.dispatch_event("received command")
 
 
+@modifies_state
 async def handle_callback_query(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,

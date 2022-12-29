@@ -78,7 +78,7 @@ class ProgramState(BaseModel):
             session.commit()
             session.close()
         cache.pop("profile", None)
-        await repo.save_user(self)
+        await repo.save_state(self)
 
     @property
     def total_choices(self) -> int:
