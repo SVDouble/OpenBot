@@ -11,7 +11,7 @@ from telegram.ext import Application
 
 from app.asismic.interpreter import AsyncInterpreter
 from app.asismic.python import AsyncPythonEvaluator
-from app.models import Statechart, ProgramState
+from app.models import ProgramState, Statechart
 from app.utils import get_logger, get_settings
 
 __all__ = ["BaseInterpreter", "UserInterpreter", "BotInterpreter"]

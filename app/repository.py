@@ -1,5 +1,6 @@
+import functools
 import pickle
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID
 
 import httpx
@@ -10,8 +11,17 @@ __all__ = ["Repository"]
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from telegram.ext import Application
 
-from app.models import Callback, Statechart, ProgramState
-from app.utils import get_settings, get_logger
+from app.exceptions import AccessDeniedError, PublicError
+from app.models import (
+    Account,
+    Bot,
+    Callback,
+    ProgramState,
+    ReferralLink,
+    Statechart,
+    User,
+)
+from app.utils import get_logger, get_settings
 
 settings = get_settings()
 logger = get_logger(__file__)
@@ -55,8 +65,8 @@ class Repository:
         if data := await self.raw_db.get(key):
             return pickle.loads(data)
 
-    async def set_pickle(self, key: str, value: Any, **kwargs):
-        await self.raw_db.set(key, pickle.dumps(value), **kwargs)
+    async def set_pickle(self, key: str, value: Any, *, ex: int | None, **kwargs):
+        await self.raw_db.set(key, pickle.dumps(value), ex=ex, **kwargs)
 
     async def delete_pickle(self, key: str):
         await self.raw_db.delete(key)
@@ -69,10 +79,30 @@ class Repository:
     def get_callback_key(cls, state: ProgramState, callback_id: UUID | str) -> str:
         return f"{cls.get_state_key(state.user.telegram_id, state.id)}:callback:{callback_id}"
 
+    @classmethod
+    def get_account_key(cls, telegram_id: int) -> str:
+        return f"{telegram_id}:account"
+
+    @classmethod
+    def get_user_key(cls, telegram_id: int) -> str:
+        return f"{telegram_id}:user"
+
+    @classmethod
+    def get_referral_link_key(cls, alias: str) -> str:
+        return f"ref:{alias}"
+
+    @classmethod
+    def get_bot_key(cls, bot_id: UUID) -> str:
+        return f"bot:{bot_id}"
+
+    @classmethod
+    def get_statechart_key(cls, statechart_id: UUID) -> str:
+        return f"statechart:{statechart_id}"
+
     async def save_state(self, state: ProgramState):
         telegram_id = state.user.telegram_id
-        await self.set_pickle(self.get_state_key(telegram_id, state.id), state)
-        await self.set_pickle(self.get_state_key(telegram_id, "latest"), state)
+        await self.set_pickle(self.get_state_key(telegram_id, state.id), state, ex=None)
+        await self.set_pickle(self.get_state_key(telegram_id, "latest"), state, ex=None)
         await self.db.sadd("users", state.user.telegram_id)
 
     async def load_state(
@@ -81,15 +111,21 @@ class Repository:
         from app.engine import UserInterpreter
 
         key = self.get_state_key(telegram_id, state_id)
-        if (user := await self.get_pickle(key)) is None:
+        state: ProgramState | None = await self.get_pickle(key)
+        user = await self.get_user(telegram_id)
+
+        if state is None:
             if state_id != "latest":
                 raise KeyError(f"State {key} does not exist")
-            user = user or ProgramState(telegram_id=telegram_id)
+            state = ProgramState(user=user)
+        else:
+            state.user = user
+
         statechart = await self.get_statechart(settings.bot.statechart)
-        user.interpreter = UserInterpreter(user, app, statechart)
-        user.interpreter.__dict__.update(user.interpreter_state)
-        await self.save_state(user)
-        return user
+        state.interpreter = UserInterpreter(state, app, statechart)
+        state.interpreter.__dict__.update(state.interpreter_state)
+        await self.save_state(state)
+        return state
 
     async def reset_state(self, telegram_id: int):
         # TODO: remove obsolete states?
@@ -99,7 +135,9 @@ class Repository:
         return set(int(uid) for uid in await self.db.smembers("users"))
 
     async def create_callback(self, state: ProgramState, callback: Callback):
-        await self.set_pickle(self.get_callback_key(state, callback.id), callback)
+        await self.set_pickle(
+            self.get_callback_key(state, callback.id), callback, ex=None
+        )
 
     async def get_callback(
         self, state: ProgramState, callback_id: UUID | str
@@ -109,11 +147,87 @@ class Repository:
     async def remove_callback(self, state: ProgramState, callback_id: UUID | str):
         await self.delete_pickle(self.get_callback_key(state, callback_id))
 
-    async def get_statechart(self, statechart_id) -> Statechart:
-        redis_key = f"statechart:{statechart_id}"
-        if statechart := await self.get_pickle(redis_key):
-            return statechart
+    def cached(self, *, key: str | Callable, ex: int):
+        def decorator(fetch_obj):
+            @functools.wraps(fetch_obj)
+            async def wrapper(*args, **kwargs):
+                redis_key = key if isinstance(key, str) else key(*args, **kwargs)
+
+                if (obj := await self.get_pickle(redis_key)) is not None:
+                    return obj
+                if (obj := await fetch_obj(*args, **kwargs)) is not None:
+                    await self.set_pickle(key, obj, ex=ex)
+                    return obj
+
+            return wrapper
+
+        return decorator
+
+    @cached(key=get_statechart_key, ex=settings.cache_ex_statecharts)
+    async def get_statechart(self, statechart_id: UUID) -> Statechart:
         response = await self.httpx.get(f"/statecharts/{statechart_id}/")
-        statechart = Statechart.parse_obj(response.json()["code"])
-        await self.set_pickle(redis_key, statechart, ex=60 * 60)
-        return statechart
+        return Statechart.parse_obj(response.json()["code"])
+
+    @cached(key=get_account_key, ex=settings.cache_ex_accounts)
+    async def get_account(self, telegram_id: int) -> Account:
+        response = await self.httpx.get(
+            "/accounts/",
+            params={"telegram_id": telegram_id},
+        )
+        if response.is_success and (data := response.json()):
+            return Account.parse_obj(data[0])
+        response = await self.httpx.post(
+            "/accounts/", json={"telegram_id": telegram_id}
+        )
+        if response.is_success and (data := response.json()):
+            account: Account = Account.parse_obj(data)
+            if not account.is_active:
+                raise AccessDeniedError("Your account seems to be inactive")
+            return account
+
+        raise PublicError("Couldn't create an account")
+
+    @cached(key=get_referral_link_key, ex=settings.cache_ex_statecharts)
+    async def get_referral_link(self, alias: str = "") -> ReferralLink | None:
+        params = {"alias": alias} if alias else {"is_default": True}
+        response = await self.httpx.get("/referral_links/", params=params)
+        if response.is_success and (data := response.json()):
+            return ReferralLink.parse_obj(data)
+
+    @cached(key=get_user_key, ex=settings.cache_ex_users)
+    async def get_user(self, telegram_id: int) -> User:
+        # retrieve the user
+        response = await self.httpx.get(
+            f"/users/",
+            params={
+                "is_active": True,
+                "telegram_id": telegram_id,
+                "bot__username": settings.bot.username,
+            },
+        )
+        if response.is_success and (data := response.json()):
+            return User.parse_obj(data[0])
+
+        # create a new user
+        account = await self.get_account(telegram_id)
+        link = await self.get_referral_link()
+        if link is None:
+            raise PublicError("Registration is not available at the moment")
+        response = await self.httpx.post(
+            "/user/",
+            json={
+                "account": account.id,
+                "telegram_id": telegram_id,
+                "referral_link": link,
+            },
+        )
+        if response.is_success and (data := response.json()):
+            return User.parse_obj(data)
+
+        PublicError("Couldn't register the user")
+
+    @cached(key=get_bot_key, ex=settings.cache_ex_bots)
+    async def get_bot(self, bot_id: UUID) -> Bot | None:
+        response = await self.httpx.get(f"/bots/{bot_id}/")
+        if response.is_success and (data := response.json()):
+            return Bot.parse_obj(data)

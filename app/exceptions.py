@@ -1,6 +1,6 @@
 from enum import Enum, auto, unique
 
-__all__ = ["BotError", "ValidationError"]
+__all__ = ["BotError", "ValidationError", "PublicError", "AccessDeniedError"]
 
 
 class BotError(Exception):
@@ -20,3 +20,11 @@ class ValidationError(BotError):
     def __init__(self, code: Code, message: str = None):
         self.code = code
         self.message = message
+
+
+class PublicError(BotError):
+    pass
+
+
+class AccessDeniedError(PublicError):
+    pass
