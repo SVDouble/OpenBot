@@ -46,23 +46,7 @@ class Repository:
         self.httpx = self._get_httpx_client()
 
     def _get_httpx_client(self) -> AsyncClient:
-        class Client(AsyncOAuth2Client):
-            def parse_response_token(self, resp):
-                token = super().parse_response_token(resp)
-                self.token = {
-                    "refresh_token": token["refresh"],
-                    "access_token": token["access"],
-                }
-                return self.token
-
-        client = Client(
-            token_endpoint="/token/refresh/",
-            # non-auth params
-            http2=True,
-            base_url=settings.backend_api_url,
-            verify=settings.backend_api_verify,
-        )
-        tokens = httpx.post(
+        token = httpx.post(
             f"{settings.backend_api_url}/token/",
             json={
                 "username": settings.backend_api_username.get_secret_value(),
@@ -70,11 +54,14 @@ class Repository:
             },
             verify=settings.backend_api_verify,
         ).json()
-        client.token = {
-            "refresh_token": tokens["refresh"],
-            "access_token": tokens["access"],
-        }
-        return client
+        return AsyncOAuth2Client(
+            token_endpoint="/token/refresh/",
+            token=token,
+            # non-auth params
+            http2=True,
+            base_url=settings.backend_api_url,
+            verify=settings.backend_api_verify,
+        )
 
     async def get_pickle(self, key: str) -> Any | None:
         if data := await self.raw_db.get(key):
