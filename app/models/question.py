@@ -26,6 +26,7 @@ class Question(BaseModel):
     allow_arbitrary_input: bool = False
     allow_multiple_choices: bool = False
     allow_empty_answers: bool = False
+    is_rhetorical: bool = False
 
     text_skip: str = "Пропустить вопрос"
     text_error: str | None = None

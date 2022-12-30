@@ -2,9 +2,11 @@ from functools import cached_property
 from typing import Any, Self
 from uuid import UUID, uuid4
 
+from jinja2 import Template
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as SqlSession
 from telegram import InlineKeyboardButton, Message
+from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.exceptions import ValidationError
@@ -143,3 +145,32 @@ class ProgramState(BaseModel):
         self.answers[self.question.label] = self.answer
         if trait := self.question.user_trait:
             setattr(self.profile, trait.column, self.answer)
+
+    async def render_question(self) -> dict:
+        photos: list[str] = []
+        template = Template(self.question.name, extensions=["jinja2.ext.do"])
+        text = template.render(
+            {
+                "state": self,
+                "user": self.user,
+                "answers": self.answers,
+                "load_photo": lambda content_id: photos.append(content_id),
+            }
+        )
+        photos = [
+            photo.value
+            for content_id in photos
+            if (photo := await repo.get_content(content_id))
+        ]
+        if photos:
+            # TODO: support multiple photos
+            return {
+                "photo": photos[0],
+                "caption": text,
+                "parse_mode": ParseMode.HTML,
+            }
+        else:
+            return {
+                "text": text,
+                "parse_mode": ParseMode.HTML,
+            }

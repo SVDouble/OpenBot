@@ -28,9 +28,7 @@ def get_repository():
 def get_logger(module_name):
     logger = logging.getLogger(module_name)
     handler = RichHandler(console=console, enable_link_path=False)
-    handler.setFormatter(
-        logging.Formatter("[ %(threadName)s:%(funcName)s:%(lineno)d ] - %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(handler)
     settings = get_settings()
     logger.setLevel(settings.log_level)

@@ -137,6 +137,7 @@ class UserEvaluator(BaseEvaluator):
             "release": state.release,
             "clean_input": state.clean_input,
             "save_answer": state.save_answer,
+            "render_question": state.render_question,
         }
 
 

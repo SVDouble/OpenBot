@@ -37,11 +37,12 @@ class Settings(BaseSettings):
     backend_api_username: SecretStr
     backend_api_password: SecretStr
 
-    cache_ex_bots = 60
-    cache_ex_accounts = 60 * 60
-    cache_ex_users = 60 * 60
-    cache_ex_statecharts = 60
-    cache_ex_referral_links = 60 * 60
+    cache_ex_bot = 60
+    cache_ex_account = 60 * 60
+    cache_ex_user = 60 * 60
+    cache_ex_statechart = 60
+    cache_ex_referral_link = 60 * 60
+    cache_ex_content = 60 * 60
 
     inline_half_width = 15
     inline_full_width = 36

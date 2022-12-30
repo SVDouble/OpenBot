@@ -97,7 +97,7 @@ def main():
     )
     app.job_queue.run_repeating(
         update_bot_config,
-        interval=settings.cache_ex_bots,
+        interval=settings.cache_ex_bot,
         data={"trigger": update_trigger},
     )
     logger.info("Polling has started UwU")

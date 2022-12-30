@@ -21,6 +21,7 @@ from app.models import (
     ReferralLink,
     Statechart,
     User,
+    Content,
 )
 from app.utils import get_logger, get_settings
 
@@ -45,7 +46,16 @@ class Repository:
         self.httpx = self._get_httpx_client()
 
     def _get_httpx_client(self) -> AsyncClient:
-        client = AsyncOAuth2Client(
+        class Client(AsyncOAuth2Client):
+            def parse_response_token(self, resp):
+                token = super().parse_response_token(resp)
+                self.token = {
+                    "refresh_token": token["refresh"],
+                    "access_token": token["access"],
+                }
+                return self.token
+
+        client = Client(
             token_endpoint="/token/refresh/",
             # non-auth params
             http2=True,
@@ -96,6 +106,9 @@ class Repository:
 
     def get_statechart_key(self, statechart_id: UUID) -> str:
         return f"statechart:{statechart_id}"
+
+    def get_content_key(self, content_id: UUID | str) -> str:
+        return f"content:{content_id}"
 
     async def save_state(self, state: ProgramState):
         telegram_id = state.user.telegram_id
@@ -162,12 +175,12 @@ class Repository:
 
         return decorator
 
-    @cached(key=get_statechart_key, ex=settings.cache_ex_statecharts)
+    @cached(key=get_statechart_key, ex=settings.cache_ex_statechart)
     async def get_statechart(self, statechart_id: UUID) -> Statechart:
         response = await self.httpx.get(f"/statecharts/{statechart_id}/")
         return Statechart.parse_obj(response.json()["code"])
 
-    @cached(key=get_account_key, ex=settings.cache_ex_accounts)
+    @cached(key=get_account_key, ex=settings.cache_ex_account)
     async def get_account(self, telegram_id: int) -> Account:
         response = await self.httpx.get(
             "/accounts/",
@@ -186,7 +199,7 @@ class Repository:
 
         raise PublicError("Couldn't create an account")
 
-    @cached(key=get_referral_link_key, ex=settings.cache_ex_statecharts)
+    @cached(key=get_referral_link_key, ex=settings.cache_ex_referral_link)
     async def get_referral_link(self, alias: str = "") -> ReferralLink | None:
         params = {"alias": alias} if alias else {"is_default": True}
         params["bot"] = str(settings.bot.id)
@@ -194,7 +207,7 @@ class Repository:
         if response.is_success and (data := response.json()):
             return ReferralLink.parse_obj(data[0])
 
-    @cached(key=get_user_key, ex=settings.cache_ex_users)
+    @cached(key=get_user_key, ex=settings.cache_ex_user)
     async def get_user(self, telegram_id: int) -> User:
         # retrieve the user
         response = await self.httpx.get(
@@ -229,9 +242,15 @@ class Repository:
 
         raise PublicError("Couldn't register the user")
 
-    @cached(key=get_bot_key, ex=settings.cache_ex_bots)
+    @cached(key=get_bot_key, ex=settings.cache_ex_bot)
     async def get_bot(self, bot_id: UUID) -> Bot | None:
         response = await self.httpx.get(f"/bots/{bot_id}/")
         if response.is_success and (data := response.json()):
             return Bot.parse_obj(data)
         raise PublicError("Couldn't get the bot info")
+
+    @cached(key=get_bot_key, ex=settings.cache_ex_content)
+    async def get_content(self, content_id: UUID | str) -> Content | None:
+        response = await self.httpx.get(f"/contents/{content_id}/")
+        if response.is_success and (data := response.json()):
+            return Content.parse_obj(data)

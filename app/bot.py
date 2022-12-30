@@ -27,8 +27,8 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def get_state(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = await ProgramState.load(update.effective_user.id, context.application)
-    await update.message.reply_text(f"active states: {user.interpreter.configuration}")
+    state = await ProgramState.load(update.effective_user.id, context.application)
+    await update.message.reply_text(f"active states: {state.interpreter.configuration}")
 
 
 commands = {"reset": reset, "ping": ping, "state": get_state}
