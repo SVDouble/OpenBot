@@ -15,13 +15,14 @@ from telegram.ext import Application
 from app.exceptions import AccessDeniedError, PublicError
 from app.models import (
     Account,
+    Answer,
     Bot,
     Callback,
+    Content,
     ProgramState,
     ReferralLink,
     Statechart,
     User,
-    Content,
 )
 from app.utils import get_logger, get_settings
 
@@ -241,3 +242,10 @@ class Repository:
         response = await self.httpx.get(f"/contents/{content_id}/")
         if response.is_success and (data := response.json()):
             return Content.parse_obj(data)
+
+    async def save_answer(self, answer: Answer) -> Answer:
+        data = answer.dict(exclude_none=True)
+        response = await self.httpx.post(f"/answers/", json=data)
+        response.raise_for_status()
+        if response.is_success and (data := response.json()):
+            return Answer.parse_obj(data)

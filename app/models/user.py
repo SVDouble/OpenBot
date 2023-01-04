@@ -4,8 +4,6 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.models.role import Role
-
 __all__ = ["VerificationStatus", "User"]
 
 
@@ -19,6 +17,7 @@ class VerificationStatus(IntEnum):
 
 
 class User(BaseModel):
+    id: UUID
     account: UUID
     telegram_id: int
     first_name: str

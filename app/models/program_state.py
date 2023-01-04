@@ -1,3 +1,4 @@
+import asyncio
 from functools import cached_property
 from typing import Any, Self
 from uuid import UUID, uuid4
@@ -10,6 +11,7 @@ from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.exceptions import ValidationError
+from app.models import Answer
 from app.models.callback import Callback
 from app.models.content import Content
 from app.models.content_validator import ContentValidator
@@ -145,6 +147,17 @@ class ProgramState(BaseModel):
         self.answers[self.question.label] = self.answer
         if trait := self.question.user_trait:
             setattr(self.profile, trait.column, self.answer)
+            asyncio.create_task(
+                repo.save_answer(
+                    Answer(
+                        owner=self.user.id,
+                        question=self.question.id,
+                        user_trait=trait.id,
+                        selected_options=self.selected_options.keys(),
+                        created_options=self.created_options,
+                    )
+                )
+            )
 
     async def render_question(self) -> dict:
         photos: list[str] = []

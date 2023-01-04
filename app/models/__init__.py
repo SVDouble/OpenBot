@@ -1,4 +1,5 @@
 from app.models.account import Account
+from app.models.answer import Answer
 from app.models.bot import Bot
 from app.models.callback import Callback
 from app.models.content import Content, ContentType
@@ -29,4 +30,5 @@ __all__ = [
     "Bot",
     "Trait",
     "ReferralLink",
+    "Answer",
 ]

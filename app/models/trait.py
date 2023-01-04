@@ -12,6 +12,7 @@ settings = get_settings()
 
 
 class Trait(BaseModel):
+    id: UUID
     bot: UUID = settings.bot.id
     name: str
     emoji: str = ""
