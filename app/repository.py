@@ -10,6 +10,7 @@ __all__ = ["Repository"]
 
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from httpx import AsyncClient
+from telegram import Chat
 from telegram.ext import Application
 
 from app.exceptions import AccessDeniedError, PublicError
@@ -23,7 +24,9 @@ from app.models import (
     ReferralLink,
     Statechart,
     User,
+    Question,
 )
+from app.models.role import Role
 from app.utils import get_logger, get_settings
 
 settings = get_settings()
@@ -83,7 +86,7 @@ class Repository:
     def get_account_key(self, telegram_id: int) -> str:
         return f"{telegram_id}:account"
 
-    def get_user_key(self, telegram_id: int) -> str:
+    def get_user_key(self, telegram_id: int, *_, **__) -> str:
         return f"{telegram_id}:user"
 
     def get_referral_link_key(self, alias: str = "") -> str:
@@ -98,6 +101,18 @@ class Repository:
     def get_content_key(self, content_id: UUID | str) -> str:
         return f"content:{content_id}"
 
+    def get_role_key(self, role_id: UUID | str) -> str:
+        return f"role:{role_id}"
+
+    def get_question_key(
+        self,
+        question_id: UUID | str | None = None,
+        label: str | None = None,
+    ) -> str:
+        if not bool(question_id) ^ bool(label):
+            raise RuntimeError("Either question_id or label must be present")
+        return f"question:{question_id or label}"
+
     async def save_state(self, state: ProgramState):
         telegram_id = state.user.telegram_id
         await self.set_pickle(self.get_state_key(telegram_id, state.id), state, ex=None)
@@ -111,7 +126,7 @@ class Repository:
 
         key = self.get_state_key(telegram_id, state_id)
         state: ProgramState | None = await self.get_pickle(key)
-        user = await self.get_user(telegram_id)
+        user = await self.get_user(telegram_id, app)
 
         if state is None:
             if state_id != "latest":
@@ -120,7 +135,8 @@ class Repository:
         else:
             state.user = user
 
-        statechart = await self.get_statechart(settings.bot.statechart)
+        role = await self.get_role(user.role)
+        statechart = await self.get_statechart(role.statechart)
         state.interpreter = UserInterpreter(state, app, statechart)
         state.interpreter.__dict__.update(state.interpreter_state)
         await self.save_state(state)
@@ -196,7 +212,7 @@ class Repository:
             return ReferralLink.parse_obj(data[0])
 
     @cached(key=get_user_key, ex=settings.cache_ex_user)
-    async def get_user(self, telegram_id: int) -> User:
+    async def get_user(self, telegram_id: int, app: Application) -> User:
         # retrieve the user
         response = await self.httpx.get(
             f"/users/",
@@ -215,6 +231,7 @@ class Repository:
         link = await self.get_referral_link()
         if link is None:
             raise PublicError("Registration is not available at the moment")
+        chat: Chat = await app.bot.get_chat(telegram_id)
         response = await self.httpx.post(
             "/users/",
             json={
@@ -223,6 +240,8 @@ class Repository:
                 "bot": str(link.bot),
                 "role": str(link.target_role),
                 "referral_link": str(link.id),
+                "first_name": chat.first_name,
+                "last_name": chat.last_name,
             },
         )
         if response.is_success and (data := response.json()):
@@ -237,15 +256,41 @@ class Repository:
             return Bot.parse_obj(data)
         raise PublicError("Couldn't get the bot info")
 
-    @cached(key=get_bot_key, ex=settings.cache_ex_content)
+    @cached(key=get_content_key, ex=settings.cache_ex_content)
     async def get_content(self, content_id: UUID | str) -> Content | None:
         response = await self.httpx.get(f"/contents/{content_id}/")
         if response.is_success and (data := response.json()):
             return Content.parse_obj(data)
 
+    @cached(key=get_role_key, ex=settings.cache_ex_role)
+    async def get_role(self, role_id: UUID | str) -> Role | None:
+        response = await self.httpx.get(f"/roles/{role_id}/")
+        if response.is_success and (data := response.json()):
+            return Role.parse_obj(data)
+        raise PublicError("Couldn't fetch the role")
+
+    @cached(key=get_question_key, ex=settings.cache_ex_question)
+    async def get_question(
+        self,
+        question_id: UUID | str | None = None,
+        label: str | None = None,
+    ) -> Question:
+        if question_id:
+            response = await self.httpx.get(f"/questions/{question_id}/")
+            if response.is_success and (data := response.json()):
+                return Question.parse_obj(data)
+        elif label:
+            response = await self.httpx.get(
+                f"/questions/", params={"bot": settings.bot.id, "label": label}
+            )
+            if response.is_success and (data := response.json()):
+                return Question.parse_obj(data[0])
+        raise PublicError("Couldn't fetch the question")
+
     async def save_answer(self, answer: Answer) -> Answer:
-        data = answer.dict(exclude_none=True)
-        response = await self.httpx.post(f"/answers/", json=data)
+        data = answer.json(exclude_none=True)
+        headers = {"Content-Type": "application/json"}
+        response = await self.httpx.post(f"/answers/", headers=headers, data=data)
         response.raise_for_status()
         if response.is_success and (data := response.json()):
             return Answer.parse_obj(data)

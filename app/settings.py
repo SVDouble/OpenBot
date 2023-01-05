@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     cache_ex_statechart = 60
     cache_ex_referral_link = 60 * 60
     cache_ex_content = 60 * 60
+    cache_ex_role = 60 * 60
+    cache_ex_question = 60
 
     inline_half_width = 15
     inline_full_width = 36

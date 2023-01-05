@@ -112,13 +112,18 @@ class QuestionManager:
             f"{item} does not exist!"
         )
 
-    def toggle_option(self, option: str | Option):
+    async def toggle_option(self, option: str | Option):
         if isinstance(option, str):
             option = self.parse_option(option)
         if (uuid := option.id) in self.state.selected_options:
             del self.state.selected_options[uuid]
         else:
-            self.state.selected_options[uuid] = option
+            if option.is_dynamic:
+                self.state.created_options.add(
+                    await option.generate_content(self.state)
+                )
+            else:
+                self.state.selected_options[uuid] = option
         option.is_active = not option.is_active
 
     @property

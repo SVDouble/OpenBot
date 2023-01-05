@@ -31,3 +31,7 @@ class User(BaseModel):
     is_matchable: bool
     verification_status: VerificationStatus
     date_joined: datetime.datetime
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()

@@ -1,7 +1,11 @@
+import html
+import json
 from functools import wraps
 from typing import Callable, Coroutine
 
+from pydantic.json import pydantic_encoder
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.models import ProgramState
@@ -26,12 +30,36 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("pong")
 
 
-async def get_state(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def get_active_states(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = await ProgramState.load(update.effective_user.id, context.application)
     await update.message.reply_text(f"active states: {state.interpreter.configuration}")
 
 
-commands = {"reset": reset, "ping": ping, "state": get_state}
+async def dump_state(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        arg = context.args.pop()
+    except IndexError:
+        await update.message.reply_text("Please specify an attribute to show")
+        return
+    state = await ProgramState.load(update.effective_user.id, context.application)
+    data = json.dumps(
+        state.dict(exclude_none=True).get(arg, None),
+        default=pydantic_encoder,
+        ensure_ascii=False,
+        indent=4,
+    )
+    await update.message.reply_text(
+        f"<code>{html.escape(data)}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+commands = {
+    "reset": reset,
+    "ping": ping,
+    "state": get_active_states,
+    "dump": dump_state,
+}
 
 
 # handlers

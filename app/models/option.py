@@ -17,6 +17,7 @@ class Option(BaseModel):
     emoji: str = ""
     label: str = ""
     content: Content
+    is_dynamic: bool = False
 
     row: int
     column: int
@@ -41,3 +42,11 @@ class Option(BaseModel):
         if self.is_active:
             return "✅"
         return self.emoji
+
+    async def generate_content(self, state) -> Content:
+        if self.content.type != "text":
+            raise RuntimeError(
+                "Only dynamic options with text are supported at the moment"
+            )
+        text = await state.render_template(self.content.text)
+        return Content(owner=state.user.id, type=self.content.type, text=text)

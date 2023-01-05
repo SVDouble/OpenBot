@@ -39,6 +39,7 @@ class Content(BaseModel):
     bot: UUID = settings.bot.id
     owner: UUID | None = None
     type: ContentType
+    description: str | None = None
     metadata: Json | None = None
     date_created: datetime.datetime = datetime.datetime.utcnow()
 

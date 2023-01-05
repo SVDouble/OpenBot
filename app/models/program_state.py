@@ -3,7 +3,7 @@ from functools import cached_property
 from typing import Any, Self
 from uuid import UUID, uuid4
 
-from jinja2 import Template
+from jinja2 import Environment, DictLoader
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as SqlSession
 from telegram import InlineKeyboardButton, Message
@@ -17,6 +17,7 @@ from app.models.content import Content
 from app.models.content_validator import ContentValidator
 from app.models.option import Option
 from app.models.question import Question
+from app.models.role import Role
 from app.models.user import User
 from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
@@ -98,7 +99,10 @@ class ProgramState(BaseModel):
             for option in self.selected_options.values()
         } | self.created_options
         answer = {content.value for content in answer}
-        return answer if self.question.allow_multiple_choices else answer.pop()
+        if self.question.allow_multiple_choices:
+            return answer
+        if answer:
+            return answer.pop()
 
     def expect(self, **inputs):
         self.inputs.update(
@@ -153,22 +157,34 @@ class ProgramState(BaseModel):
                         owner=self.user.id,
                         question=self.question.id,
                         user_trait=trait.id,
-                        selected_options=self.selected_options.keys(),
+                        selected_options=list(self.selected_options.keys()),
                         created_options=self.created_options,
                     )
                 )
             )
 
+    async def get_question(self, label: str) -> Question:
+        return await repo.get_question(label=label)
+
+    async def render_template(self, template: str, **kwargs) -> str:
+        role: Role = await repo.get_role(self.user.role)
+        templates = {"profile": role.profile_template, "__template__": template}
+        loader = DictLoader(templates)
+        environment = Environment(loader=loader, extensions=["jinja2.ext.do"])
+        context = {
+            "state": self,
+            "user": self.user,
+            "answers": self.answers,
+            "profile": self.profile,
+            **kwargs,
+        }
+        return environment.get_template("__template__").render(context)
+
     async def render_question(self) -> dict:
         photos: list[str] = []
-        template = Template(self.question.name, extensions=["jinja2.ext.do"])
-        text = template.render(
-            {
-                "state": self,
-                "user": self.user,
-                "answers": self.answers,
-                "load_photo": lambda content_id: photos.append(content_id),
-            }
+        text = await self.render_template(
+            self.question.name,
+            load_photo=lambda content_id: photos.append(content_id),
         )
         photos = [
             photo.value
