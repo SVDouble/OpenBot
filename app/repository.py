@@ -290,7 +290,7 @@ class Repository:
     async def save_answer(self, answer: Answer) -> Answer:
         data = answer.json(exclude_none=True)
         headers = {"Content-Type": "application/json"}
-        response = await self.httpx.post(f"/answers/", headers=headers, data=data)
+        response = await self.httpx.post(f"/answers/", headers=headers, content=data)
         response.raise_for_status()
         if response.is_success and (data := response.json()):
             return Answer.parse_obj(data)
