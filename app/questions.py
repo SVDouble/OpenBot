@@ -10,7 +10,9 @@ from telegram import (
 
 __all__ = ["QuestionManager"]
 
+from app.engine.logic import get_total_choices, make_inline_button
 from app.models import Option, ProgramState
+from app.repository import Repository
 from app.utils import get_logger, get_settings
 
 logger = get_logger(__name__)
@@ -22,8 +24,9 @@ class QuestionManager:
     action_save_answer = "save answer"
     action_create_option = "create option"
 
-    def __init__(self, state: ProgramState):
-        self.state: ProgramState = state
+    def __init__(self, state: ProgramState, repo: Repository):
+        self.state = state
+        self.repo = repo
         self.question = state.question
         self.options: list[Option] = self.question.options
         self.option_layout: list[list[Option]] = self._generate_option_layout(
@@ -47,7 +50,9 @@ class QuestionManager:
 
     async def create_button(self, name: str, data: Any, **kwargs):
         if self.is_inline:
-            return await self.state.make_inline_button(name, data=data, **kwargs)
+            return await make_inline_button(
+                self.state, self.repo, name, data=data, **kwargs
+            )
         return KeyboardButton(name, **kwargs)
 
     def _create_markup(self, buttons: list[list]):
@@ -92,7 +97,7 @@ class QuestionManager:
         # button "skip"
         if (
             self.question.allow_skipping
-            and self.state.total_choices == 0
+            and get_total_choices(self.state) == 0
             and not is_final
         ):
             skip_button = await self.create_button(
@@ -130,4 +135,4 @@ class QuestionManager:
     def is_answer_valid(self) -> bool:
         if self.question.allow_empty_answers:
             return True
-        return self.state.total_choices > 0
+        return get_total_choices(self.state) > 0

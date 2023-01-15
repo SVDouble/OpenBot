@@ -9,6 +9,7 @@ from app.models.program_state import ProgramState
 from app.models.question import Question
 from app.models.referral_link import ReferralLink
 from app.models.statechart import *
+from app.models.suggestion import Suggestion
 from app.models.trait import Trait
 from app.models.user import User
 
@@ -31,4 +32,5 @@ __all__ = [
     "Trait",
     "ReferralLink",
     "Answer",
+    "Suggestion",
 ]

@@ -9,6 +9,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.models import ProgramState
+from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
 
 __all__ = ["handle_message", "handle_command", "handle_callback_query", "commands"]
@@ -31,7 +32,9 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def get_active_states(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    state = await ProgramState.load(update.effective_user.id, context.application)
+    state = await repo.states.load_for_user(
+        update.effective_user.id, context.application
+    )
     await update.message.reply_text(f"active states: {state.interpreter.configuration}")
 
 
@@ -41,7 +44,9 @@ async def dump_state(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     except IndexError:
         await update.message.reply_text("Please specify an attribute to show")
         return
-    state = await ProgramState.load(update.effective_user.id, context.application)
+    state = await repo.states.load_for_user(
+        update.effective_user.id, context.application
+    )
     data = json.dumps(
         state.dict(exclude_none=True).get(arg, None),
         default=pydantic_encoder,
@@ -72,9 +77,15 @@ def modifies_state(
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         telegram_id = update.effective_user.id
         app = context.application
-        async with (await ProgramState.load(telegram_id, app)) as state:
-            state.interpreter.context.update(update=update, context=context)
+        state = await repo.states.load_for_user(telegram_id, app)
+        with Session() as session:
+            profile = get_profile(session, telegram_id)
+            state.interpreter.context.update(
+                update=update, context=context, profile=profile
+            )
             await f(update, context, state)
+            session.commit()
+            await repo.states.save(state)
 
     return wrapper
 

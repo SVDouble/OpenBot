@@ -12,7 +12,7 @@ from telegram.ext import (
 )
 
 from app.bot import commands, handle_callback_query, handle_command, handle_message
-from app.models import ProgramState
+from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
@@ -53,16 +53,21 @@ async def post_init(app: Application, *, update_trigger: asyncio.Event):
 async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
     from app.profile import reload_profile_class
 
-    logger.info(f"running user logic, users={await repo.get_user_ids()}")
+    logger.info(f"running user logic, users={await repo.get_active_user_ids()}")
     reload_profile_class()
-    for uid in await repo.get_user_ids():
-        state = await ProgramState.load(uid, context.application)
-        await state.interpreter.dispatch_event("clock")
+    for uid in await repo.get_active_user_ids():
+        state = await repo.states.load_for_user(uid, context.application)
+        with Session() as session:
+            profile = get_profile(session, state.user.telegram_id)
+            state.interpreter.context.update(profile=profile)
+            await state.interpreter.dispatch_event("clock")
+            session.commit()
+            await repo.states.save(state)
 
 
 async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):
     trigger: asyncio.Event = context.job.data["trigger"]
-    settings.bot = await repo.get_bot(settings.bot.id)
+    settings.bot = await repo.bot.get(settings.bot.id)
     if not trigger.is_set():
         trigger.set()
 

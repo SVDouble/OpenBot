@@ -8,7 +8,7 @@ __all__ = ["Account"]
 
 class Account(BaseModel):
     id: UUID
-    username: str = ""
+    username: str | None = None
     telegram_id: int
     is_active: bool
     date_joined: datetime.datetime

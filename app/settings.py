@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     cache_ex_content = 60 * 60
     cache_ex_role = 60 * 60
     cache_ex_question = 60
+    cache_ex_suggestions = 60
+    cache_ex_answers = 60 * 60
 
     inline_half_width = 15
     inline_full_width = 36
