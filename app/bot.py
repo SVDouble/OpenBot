@@ -123,7 +123,7 @@ async def handle_callback_query(
     state: ProgramState,
 ) -> None:
     query = update.callback_query
-    if callback := await repo.get_callback(state, query.data):
+    if callback := await repo.callbacks.load(query.data):
         if callback.auto_answer:
             await query.answer()
         state.interpreter.context.update(query=query, callback=callback)

@@ -43,10 +43,13 @@ class Option(BaseModel):
             return "✅"
         return self.emoji
 
-    async def generate_content(self, state) -> Content:
+    async def generate_content(self, state, repo) -> Content:
+        from app.engine.logic import render_template
+
         if self.content.type != "text":
             raise RuntimeError(
                 "Only dynamic options with text are supported at the moment"
             )
-        text = await state.render_template(self.content.text)
+
+        text = await render_template(state, repo, self.content.text)
         return Content(owner=state.user.id, type=self.content.type, text=text)

@@ -34,6 +34,9 @@ class UserEvaluator(BaseEvaluator):
         interpreter: UserInterpreter = self._interpreter
         repo: Repository = interpreter.repo
 
+        async def get_question(label: str):
+            return await repo.questions.get(label=label)
+
         return {
             "bot": interpreter.app.bot,
             "state": (state := interpreter.program_state),
@@ -46,7 +49,7 @@ class UserEvaluator(BaseEvaluator):
             "release": partial(logic.release, state),
             "clean_input": partial(logic.clean_input, state),
             "save_answer": partial(logic.save_answer, state, repo),
-            "get_question": repo.questions.get,
+            "get_question": get_question,
             "get_answer": partial(logic.get_answer, state),
             "make_inline_button": partial(logic.make_inline_button, state, repo),
             "render_template": partial(logic.render_template, state, repo),

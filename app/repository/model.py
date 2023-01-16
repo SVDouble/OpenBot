@@ -12,6 +12,10 @@ __all__ = [
     "ID",
 ]
 
+from app.utils import get_logger
+
+logger = get_logger(__file__)
+
 ModelClass = TypeVar("ModelClass", bound=BaseModel)
 ID = int | str | UUID | ModelClass
 
@@ -43,15 +47,15 @@ class BaseModelRepository(Generic[ModelClass]):
 
         if id_ is None and kwargs:
             alias = self._make_alias(kwargs)
-            await self.core.db.set(self._make_key(alias), key, ex=self.ex)
+            await self.core.db.set(alias, key, ex=self.ex)
 
     async def load(self, id_: ID | None, **kwargs) -> ModelClass | None:
+        key = None
         if id_ is not None:
             key = self._make_key(id_, **kwargs)
-            return await self.core.get_pickle(key)
-
-        alias = self._make_alias(kwargs)
-        if key := await self.core.db.get(alias):
+        elif alias := self._make_alias(kwargs):
+            key = await self.core.db.get(alias)
+        if key:
             return await self.core.get_pickle(key)
 
     async def remove(self, id_: ID, **kwargs) -> None:
@@ -107,7 +111,7 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
         if (obj := await self.load(id_, **kwargs)) is not None:
             return obj
         if (obj := await self._retrieve(id_, **kwargs)) is not None:
-            await self.save(obj)
+            await self.save(obj, id_, **kwargs)
             return obj
 
 
@@ -126,7 +130,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         response = await self.core.httpx.post(f"{self.url}/", **request_kwargs)
         response.raise_for_status()
         obj = self.model.parse_obj(response.json())
-        await self.save(obj)
+        await self.save(obj, id_, **kwargs)
         return obj
 
     async def get_or_create(self, id_: ID | None = None, **kwargs) -> ModelClass:

@@ -13,5 +13,6 @@ class QuestionRepository(BaseRoModelRepository[Question]):
     ex = settings.cache_ex_question
     url = "/questions"
 
-    def _make_key(self, id_: ID | None, **kwargs) -> str:
-        return super()._make_key(id_ or kwargs["label"], **kwargs)
+    async def _get_retrieve_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
+        if id_ is None:
+            return {"params": {"bot": str(settings.bot.id), "label": kwargs["label"]}}

@@ -125,7 +125,7 @@ class QuestionManager:
         else:
             if option.is_dynamic:
                 self.state.created_options.add(
-                    await option.generate_content(self.state)
+                    await option.generate_content(self.state, self.repo)
                 )
             else:
                 self.state.selected_options[uuid] = option

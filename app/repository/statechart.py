@@ -15,5 +15,8 @@ class StatechartRepository(BaseRoModelRepository[Statechart]):
     ex = settings.cache_ex_statechart
     url = "/statecharts"
 
+    # TODO: fix me
+    id_field = "name"
+
     def _extract(self, data: Any, id_: ID | None, **kwargs) -> Any:
         return data["code"]
