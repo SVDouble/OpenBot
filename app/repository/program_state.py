@@ -1,9 +1,7 @@
-from uuid import UUID
-
 from telegram.ext import Application
 
 from app.models import ProgramState
-from app.repository.model import BaseRwModelRepository
+from app.repository.model import ID, BaseRwModelRepository
 from app.utils import get_settings
 
 __all__ = ["ProgramStateRepository"]
@@ -17,16 +15,19 @@ class ProgramStateRepository(BaseRwModelRepository[ProgramState]):
     ex = None
     url = "/states"
 
-    async def create(
-        self, id_: int | str | UUID | ProgramState, **kwargs
-    ) -> ProgramState:
-        return ProgramState(user=kwargs["user"])
+    async def create(self, id_: ID, **kwargs) -> ProgramState:
+        state = ProgramState(user=kwargs["user"])
+        await self.save(state)
+        return state
 
     async def load_for_user(self, telegram_id: int, app: Application) -> ProgramState:
         from app.engine import UserInterpreter
 
-        user = await self.core.users.get(telegram_id, app=app)
+        user = await self.core.users.get(telegram_id=telegram_id, app=app)
         state = await self.get_or_create(user.state_id, user=user)
+        if user.state_id != state.id:
+            user.state_id = state.id
+            await self.core.users.save(user)
 
         # load the interpreter
         role = await self.core.roles.get(user.role)

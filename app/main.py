@@ -41,7 +41,7 @@ async def run_bot_logic(app: Application, *, update_trigger: asyncio.Event):
             await task
             task = None
         if statechart_id:
-            statechart = await repo.get_statechart(statechart_id)
+            statechart = await repo.statecharts.get(statechart_id)
             engine = BotInterpreter(app, statechart)
             task = asyncio.create_task(engine.run())
 
@@ -67,7 +67,7 @@ async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
 
 async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):
     trigger: asyncio.Event = context.job.data["trigger"]
-    settings.bot = await repo.bot.get(settings.bot.id)
+    settings.bot = await repo.bots.get(settings.bot.id)
     if not trigger.is_set():
         trigger.set()
 

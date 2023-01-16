@@ -23,7 +23,10 @@ repo = get_repository()
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await repo.reset_state(update.effective_user.id)
+    state = await repo.states.load_for_user(
+        update.effective_user.id, context.application
+    )
+    await repo.states.remove(state)
     await update.message.reply_text("done")
 
 

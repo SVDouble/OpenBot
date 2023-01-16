@@ -48,7 +48,6 @@ class UserEvaluator(BaseEvaluator):
             "save_answer": partial(logic.save_answer, state, repo),
             "get_question": repo.questions.get,
             "get_answer": partial(logic.get_answer, state),
-            "get_total_choices": partial(logic.get_total_choices, state),
             "make_inline_button": partial(logic.make_inline_button, state, repo),
             "render_template": partial(logic.render_template, state, repo),
             "render_question": partial(logic.render_question, state, repo),

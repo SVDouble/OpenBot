@@ -31,6 +31,14 @@ class ProgramState(BaseModel):
 
     interpreter: Any = Field(default_factory=None, exclude=True)
 
+    @property
+    def total_choices(self) -> int:
+        return len(self.selected_options) + len(self.created_options)
+
+    @property
+    def profile(self) -> Any:
+        return self.interpreter and self.interpreter.context.get("profile")
+
     def __getstate__(self):
         if self.interpreter:
             self.interpreter_state = self.interpreter.state

@@ -1,5 +1,5 @@
 from app.models import Account
-from app.repository.model import BaseRwModelRepository
+from app.repository.model import ID, BaseRwModelRepository
 from app.utils import get_settings
 
 __all__ = ["AccountRepository"]
@@ -13,8 +13,9 @@ class AccountRepository(BaseRwModelRepository[Account]):
     ex = settings.cache_ex_account
     url = "/accounts"
 
-    async def _get_retrieve_kwargs(self, id_: int, **kwargs) -> dict:
-        return {"params": {"telegram_id": id_}}
+    async def _get_retrieve_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
+        if id_ is None:
+            return {"params": {"telegram_id": id_}}
 
-    async def _get_create_kwargs(self, id_: int, **kwargs) -> dict:
+    async def _get_create_kwargs(self, id_: int, **kwargs) -> dict | None:
         return {"json": {"telegram_id": id_}}

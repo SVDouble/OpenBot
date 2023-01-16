@@ -11,7 +11,6 @@ from app.models.role import Role
 from app.repository import Repository
 
 __all__ = [
-    "get_total_choices",
     "get_answer",
     "expect",
     "release",
@@ -21,10 +20,6 @@ __all__ = [
     "render_template",
     "render_question",
 ]
-
-
-def get_total_choices(state: ProgramState) -> int:
-    return len(state.selected_options) + len(state.created_options)
 
 
 def get_answer(state: ProgramState) -> Any:

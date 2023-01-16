@@ -10,7 +10,7 @@ from telegram import (
 
 __all__ = ["QuestionManager"]
 
-from app.engine.logic import get_total_choices, make_inline_button
+from app.engine.logic import make_inline_button
 from app.models import Option, ProgramState
 from app.repository import Repository
 from app.utils import get_logger, get_settings
@@ -97,7 +97,7 @@ class QuestionManager:
         # button "skip"
         if (
             self.question.allow_skipping
-            and get_total_choices(self.state) == 0
+            and self.state.total_choices == 0
             and not is_final
         ):
             skip_button = await self.create_button(
@@ -135,4 +135,4 @@ class QuestionManager:
     def is_answer_valid(self) -> bool:
         if self.question.allow_empty_answers:
             return True
-        return get_total_choices(self.state) > 0
+        return self.state.total_choices > 0
