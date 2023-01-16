@@ -21,16 +21,23 @@ ID = int | str | UUID | ModelClass
 
 
 class BaseModelRepository(Generic[ModelClass]):
+    model: Type[ModelClass]
+    id_field = "id"
     ex: int | None
     key: str
 
     def __init__(self, core: Repository):
         self.core = core
 
-    def _make_key(self, id_: ID, **kwargs) -> str:
-        return f"{self.key}:{id_}"
+    def _make_key(self, id_: ID | None, **kwargs) -> str:
+        if id_ is None:
+            raise RuntimeError("Cannot make a key without an id")
+        if isinstance(id_, self.model):
+            id_ = getattr(id_, self.id_field, id_)
+        id_ = str(id_)
+        return f"{self.key}:id[{id_}]"
 
-    def _make_alias(self, kwargs: dict) -> str:
+    def _make_ref(self, kwargs: dict) -> str:
         def simplify(obj):
             if not isinstance(obj, BaseModel):
                 return obj
@@ -38,23 +45,23 @@ class BaseModelRepository(Generic[ModelClass]):
                 return obj
             return obj_id
 
-        alias = hash(frozenset((k, simplify(v)) for k, v in kwargs.items()))
-        return f"{self.key}:alias:{alias}"
+        ref = hash(frozenset((k, simplify(v)) for k, v in kwargs.items()))
+        return f"{self.key}:ref[{ref}]"
 
     async def save(self, obj: ModelClass, id_: ID = None, **kwargs) -> None:
         key = self._make_key(obj)
         await self.core.set_pickle(key, obj, ex=self.ex)
 
         if id_ is None and kwargs:
-            alias = self._make_alias(kwargs)
-            await self.core.db.set(alias, key, ex=self.ex)
+            ref = self._make_ref(kwargs)
+            await self.core.db.set(ref, key, ex=self.ex)
 
     async def load(self, id_: ID | None, **kwargs) -> ModelClass | None:
         key = None
         if id_ is not None:
             key = self._make_key(id_, **kwargs)
-        elif alias := self._make_alias(kwargs):
-            key = await self.core.db.get(alias)
+        elif ref := self._make_ref(kwargs):
+            key = await self.core.db.get(ref)
         if key:
             return await self.core.get_pickle(key)
 
@@ -64,24 +71,13 @@ class BaseModelRepository(Generic[ModelClass]):
 
 
 class BaseRoModelRepository(BaseModelRepository[ModelClass]):
-    model: Type[ModelClass]
     url: str
-
-    id_field = "id"
     use_deep_retrieval: bool = False
 
     def _make_url(self, id_: ID | None, **kwargs):
         if id_ is None:
             return f"{self.url}/"
         return f"{self.url}/{id_}/"
-
-    def _make_key(self, id_: ID | None, **kwargs) -> str:
-        if id_ is None:
-            raise RuntimeError("Cannot make a key without an id")
-        if isinstance(id_, self.model):
-            id_ = getattr(id_, self.id_field, id_)
-        id_ = str(id_)
-        return f"{self.key}:{id_!r}"
 
     def _extract(self, data: Any, id_: ID | None, **kwargs) -> Any:
         if id_ is None or isinstance(data, list):

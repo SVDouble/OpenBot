@@ -19,6 +19,7 @@ __all__ = [
     "Contract",
     "Transition",
     "State",
+    "StatechartDefinition",
     "Statechart",
     "User",
     "ProgramState",

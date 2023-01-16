@@ -1,3 +1,4 @@
+from app.models import Callback
 from app.repository.model import BaseModelRepository
 
 __all__ = ["CallbackRepository"]
@@ -8,5 +9,6 @@ settings = get_settings()
 
 
 class CallbackRepository(BaseModelRepository):
+    model = Callback
     ex = None
     key = "callback"

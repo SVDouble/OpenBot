@@ -59,7 +59,9 @@ class BaseInterpreter(AsyncInterpreter):
         statechart: Statechart,
         evaluator_klass: Callable[..., BaseEvaluator] = BaseEvaluator,
     ):
-        statechart = import_from_dict(dict(statechart=statechart.dict(by_alias=True)))
+        statechart = import_from_dict(
+            dict(statechart=statechart.code.dict(by_alias=True))
+        )
         statechart.validate()
         self._evaluator_klass = evaluator_klass
         super().__init__(
