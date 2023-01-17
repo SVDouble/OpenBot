@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.repository.core import Repository
+from app.utils import get_logger
 
 __all__ = [
     "BaseModelRepository",
@@ -11,8 +12,6 @@ __all__ = [
     "BaseRwModelRepository",
     "ID",
 ]
-
-from app.utils import get_logger
 
 logger = get_logger(__file__)
 
@@ -135,3 +134,22 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         if (obj := await self.create(id_, **kwargs)) is not None:
             return obj
         raise RuntimeError(f"Could not get or create {self.model.__name__}")
+
+    async def _get_patch_kwargs(self, obj: ModelClass) -> dict | None:
+        new_data = obj.dict()
+        old_data = (old_obj := await self.load(obj)) and old_obj.dict() or {}
+        if keys := {k for k, v in new_data.items() if v != old_data.get(k)}:
+            return {
+                "headers": {"Content-Type": "application/json"},
+                "content": obj.json(include=keys),
+            }
+
+    async def patch(self, obj: ModelClass) -> ModelClass:
+        if not (request_kwargs := await self._get_patch_kwargs(obj)):
+            return obj
+        path = f"{self.url}/{getattr(obj, self.id_field)}/"
+        response = await self.core.httpx.patch(path, **request_kwargs)
+        response.raise_for_status()
+        obj = self.model.parse_obj(response.json())
+        await self.save(obj)
+        return obj

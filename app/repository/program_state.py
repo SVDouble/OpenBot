@@ -27,7 +27,7 @@ class ProgramStateRepository(BaseRwModelRepository[ProgramState]):
         state = await self.get_or_create(user.state_id, user=user)
         if user.state_id != state.id:
             user.state_id = state.id
-            await self.core.users.save(user)
+            user = await self.core.users.patch(user)
 
         # load the interpreter
         role = await self.core.roles.get(user.role)

@@ -4,7 +4,7 @@ from typing import Any
 import httpx
 import redis.asyncio as redis
 from authlib.integrations.httpx_client import AsyncOAuth2Client
-from httpx import AsyncClient
+from httpx import AsyncClient, Response
 
 from app.utils import get_logger, get_settings
 
@@ -60,6 +60,15 @@ class Repository:
             http2=True,
             base_url=settings.backend_api_url,
             verify=settings.backend_api_verify,
+            event_hooks={"response": [self._log_response]},
+        )
+
+    async def _log_response(self, response: Response):
+        await response.aread()
+        request = response.request
+        logger.debug(
+            f"{request.method} [{response.status_code}, "
+            f"{response.elapsed.total_seconds():.2f}s] {request.url}"
         )
 
     async def get_pickle(self, key: str) -> Any | None:
