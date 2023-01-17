@@ -43,6 +43,7 @@ class Repository:
         self.users = repos.UserRepository(self)
         self.accounts = repos.AccountRepository(self)
         self.answers = repos.AnswerRepository(self)
+        self.suggestions = repos.SuggestionRepository(self)
 
     def _get_httpx_client(self) -> AsyncClient:
         token = httpx.post(

@@ -10,6 +10,7 @@ from app.repository.referral_link import ReferralLinkRepository
 from app.repository.role import RoleRepository
 from app.repository.statechart import StatechartRepository
 from app.repository.user import UserRepository
+from app.repository.suggestion import SuggestionRepository
 
 __all__ = [
     "Repository",
@@ -24,4 +25,5 @@ __all__ = [
     "CallbackRepository",
     "AnswerRepository",
     "ProgramStateRepository",
+    "SuggestionRepository",
 ]

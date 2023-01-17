@@ -1,4 +1,4 @@
-from app.models.role import Role
+from app.models import Role
 from app.repository.model import BaseRoModelRepository
 from app.utils import get_settings
 
