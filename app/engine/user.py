@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.engine.core import BaseEvaluator, BaseInterpreter
-from app.models import ProgramState, Statechart
+from app.models import ProgramState, Role, Statechart
 from app.repository import Repository
 from app.utils import get_logger
 
@@ -65,9 +65,11 @@ class UserInterpreter(BaseInterpreter):
         state: ProgramState,
         app: Application,
         statechart: Statechart,
+        role: Role,
         repo: Repository,
     ):
         super().__init__(statechart, evaluator_klass=UserEvaluator)
         self.program_state = state
+        self.role = role
         self.app = app
         self.repo = repo

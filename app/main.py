@@ -51,17 +51,13 @@ async def post_init(app: Application, *, update_trigger: asyncio.Event):
 
 
 async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
-    from app.profile import reload_profile_class
-
     logger.info(f"running user logic, users={await repo.get_active_user_ids()}")
-    reload_profile_class()
     for uid in await repo.get_active_user_ids():
         state = await repo.states.load_for_user(uid, context.application)
-        with Session() as session:
-            profile = get_profile(session, state.user.telegram_id)
+        with Session.begin() as session:
+            profile = get_profile(session, state.interpreter.role.label, state.user.id)
             state.interpreter.context.update(profile=profile)
             await state.interpreter.dispatch_event("clock")
-            session.commit()
             await repo.states.save(state)
 
 

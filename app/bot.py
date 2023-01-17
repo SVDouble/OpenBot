@@ -81,13 +81,12 @@ def modifies_state(
         telegram_id = update.effective_user.id
         app = context.application
         state = await repo.states.load_for_user(telegram_id, app)
-        with Session() as session:
-            profile = get_profile(session, telegram_id)
+        with Session.begin() as session:
+            profile = get_profile(session, state.interpreter.role.label, state.user.id)
             state.interpreter.context.update(
                 update=update, context=context, profile=profile
             )
             await f(update, context, state)
-            session.commit()
             await repo.states.save(state)
 
     return wrapper

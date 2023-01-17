@@ -108,12 +108,9 @@ async def save_answer(state: ProgramState, repo: Repository):
 
 
 async def render_template(
-    state: ProgramState,
-    repo: Repository,
-    template: str,
-    **kwargs,
+    state: ProgramState, repo: Repository, template: str, **kwargs
 ) -> str:
-    role: Role = await repo.roles.get(state.user.role)
+    role: Role = state.interpreter.role
     templates = {"profile": role.profile_template, "__template__": template}
     loader = DictLoader(templates)
     environment = Environment(loader=loader, extensions=["jinja2.ext.do"])

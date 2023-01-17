@@ -33,7 +33,7 @@ class ProgramStateRepository(BaseRwModelRepository[ProgramState]):
         role = await self.core.roles.get(user.role)
         statechart = await self.core.statecharts.get(role.statechart)
         state.interpreter = UserInterpreter(
-            state=state, app=app, statechart=statechart, repo=self.core
+            state=state, app=app, statechart=statechart, role=role, repo=self.core
         )
         state.interpreter.__dict__.update(state.interpreter_state)
 

@@ -8,6 +8,7 @@ from app.models.option import Option
 from app.models.program_state import ProgramState
 from app.models.question import Question
 from app.models.referral_link import ReferralLink
+from app.models.role import Role
 from app.models.statechart import *
 from app.models.suggestion import Suggestion
 from app.models.trait import Trait
@@ -34,4 +35,5 @@ __all__ = [
     "ReferralLink",
     "Answer",
     "Suggestion",
+    "Role",
 ]
