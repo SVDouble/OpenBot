@@ -1,13 +1,12 @@
 import asyncio
 from typing import Any
 
-from jinja2 import DictLoader, Environment
+from jinja2 import DictLoader, Environment, Template
 from telegram import InlineKeyboardButton, Message
 from telegram.constants import ParseMode
 
 from app.exceptions import ValidationError
-from app.models import Answer, Callback, Content, ContentValidator, ProgramState
-from app.models.role import Role
+from app.models import Answer, Callback, Content, ContentValidator, ProgramState, User
 from app.repository import Repository
 
 __all__ = [
@@ -108,11 +107,9 @@ async def save_answer(state: ProgramState, repo: Repository):
 
 
 async def render_template(
-    state: ProgramState, repo: Repository, template: str, **kwargs
+    state: ProgramState, repo: Repository, template_: str, **kwargs
 ) -> str:
-    role: Role = state.interpreter.role
-    templates = {"profile": role.profile_template, "__template__": template}
-    loader = DictLoader(templates)
+    loader = DictLoader({"__template__": template_})
     environment = Environment(loader=loader, extensions=["jinja2.ext.do"])
     context = {
         "state": state,
@@ -121,7 +118,16 @@ async def render_template(
         "profile": state.profile,
         **kwargs,
     }
-    return environment.get_template("__template__").render(context)
+
+    async def render_profile(user: User) -> str:
+        role = await repo.roles.get(user.role)
+        profile_template = Template(role.profile_template)
+        return profile_template.render(context)
+
+    template = environment.get_template(
+        "__template__", globals={"render_profile": render_profile}
+    )
+    return template.render(context)
 
 
 async def render_question(state: ProgramState, repo: Repository) -> dict:

@@ -77,6 +77,7 @@ class BaseInterpreter(AsyncInterpreter):
         self, event: str | sismic.model.Event
     ) -> list[sismic.model.MacroStep]:
         if not self._is_initialized:
+            # handles the preamble
             await self._evaluator.execute_statechart(self._statechart)
             self._is_initialized = True
         self.queue(event)
@@ -94,8 +95,9 @@ class BaseInterpreter(AsyncInterpreter):
     @property
     def state(self) -> dict:
         keys = {
+            # default data
             "_ignore_contract",
-            "_initialized",
+            "_initialized",  # shows whether the statechart was executed at least once
             "_time",
             "_memory",
             "_configuration",
@@ -104,5 +106,7 @@ class BaseInterpreter(AsyncInterpreter):
             "_sent_events",
             "_internal_queue",
             "_external_queue",
+            # custom data
+            "_is_initialized",  # show whether preamble was run
         }
         return {k: v for k, v in self.__dict__.items() if k in keys}
