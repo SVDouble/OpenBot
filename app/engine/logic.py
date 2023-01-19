@@ -1,13 +1,14 @@
 import asyncio
 from typing import Any
 
-from jinja2 import DictLoader, Environment, Template
+from jinja2 import DictLoader, Environment
 from telegram import InlineKeyboardButton, Message
 from telegram.constants import ParseMode
 
 from app.exceptions import ValidationError
 from app.models import Answer, Callback, Content, ContentValidator, ProgramState, User
 from app.repository import Repository
+from app.utils import get_logger
 
 __all__ = [
     "get_answer",
@@ -19,6 +20,8 @@ __all__ = [
     "render_template",
     "render_question",
 ]
+
+logger = get_logger(__file__)
 
 
 def get_answer(state: ProgramState) -> Any:
@@ -110,24 +113,31 @@ async def render_template(
     state: ProgramState, repo: Repository, template_: str, **kwargs
 ) -> str:
     loader = DictLoader({"__template__": template_})
-    environment = Environment(loader=loader, extensions=["jinja2.ext.do"])
+    environment = Environment(
+        loader=loader, extensions=["jinja2.ext.do"], enable_async=True
+    )
     context = {
         "state": state,
         "user": state.user,
         "answers": state.answers,
         "profile": state.profile,
+        "context": state.context,
         **kwargs,
     }
 
     async def render_profile(user: User) -> str:
         role = await repo.roles.get(user.role)
-        profile_template = Template(role.profile_template)
-        return profile_template.render(context)
+        profile_template = environment.from_string(role.profile_template)
+        return await profile_template.render_async(context)
 
-    template = environment.get_template(
-        "__template__", globals={"render_profile": render_profile}
-    )
-    return template.render(context)
+    async def render(obj: Any):
+        if isinstance(obj, User):
+            return await render_profile(obj)
+        raise RuntimeError(f"Cannot render a '{type(obj).__name__}'")
+
+    environment.filters["render"] = render
+    template = environment.get_template("__template__")
+    return await template.render_async(context)
 
 
 async def render_question(state: ProgramState, repo: Repository) -> dict:

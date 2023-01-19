@@ -54,7 +54,7 @@ class BaseModelRepository(Generic[ModelClass]):
     async def save(
         self, obj: ModelClass | list[ModelClass], id_: ID = None, **kwargs
     ) -> None:
-        key = self._make_key(obj)
+        key = self._make_key(obj, **kwargs)
         await self.core.set_pickle(key, obj, ex=self.ex)
 
         if id_ is None and kwargs:

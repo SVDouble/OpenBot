@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.models import Suggestion
-from app.repository.model import BaseRoModelRepository
+from app.repository.model import BaseRoModelRepository, ID
 from app.utils import get_settings
 
 __all__ = ["SuggestionRepository"]
@@ -15,6 +15,10 @@ class SuggestionRepository(BaseRoModelRepository[Suggestion]):
     ex = settings.cache_ex_suggestions
     url = "/suggestions"
 
+    async def _get_retrieve_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
+        if id_ is None:
+            return {"params": {"owner": kwargs["user_id"]}}
+
     async def pop(self, user_id: UUID) -> Suggestion | None:
         suggestions: list[Suggestion] | None = await self.get(
             user_id=user_id, many=True
@@ -24,5 +28,5 @@ class SuggestionRepository(BaseRoModelRepository[Suggestion]):
             if suggestions:
                 await self.save(suggestions, user_id=user_id)
             else:
-                await self.remove(None, user_id=user_id)
+                await self.remove([], user_id=user_id)
             return suggestion

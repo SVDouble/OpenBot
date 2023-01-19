@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -17,19 +18,27 @@ settings = get_settings()
 
 
 class ProgramState(BaseModel):
+    class Config:
+        keep_untouched = (cached_property,)
+
     id: UUID = Field(default_factory=uuid4)
     user: User
-    interpreter_state: dict = Field(default_factory=dict)
-    answers: dict[str, Any] = Field(default_factory=dict)
 
-    inputs: dict[str, ContentValidator] = Field(default_factory=dict)
+    # survey-related
     question: Question | None = None
+    answers: dict[str, Any] = Field(default_factory=dict)
+    inputs: dict[str, ContentValidator] = Field(default_factory=dict)
     selected_options: dict[UUID, Option] = Field(default_factory=dict)
     created_options: set[Content] = Field(default_factory=set)
     validate_answer: bool = False
     is_reply_keyboard_set: bool = False
 
+    # matching-related
+    suggestion: UUID | None = None
+
+    # service
     interpreter: Any = Field(default_factory=None, exclude=True)
+    interpreter_state: dict = Field(default_factory=dict)
 
     @property
     def total_choices(self) -> int:
@@ -39,6 +48,10 @@ class ProgramState(BaseModel):
     def profile(self) -> Any:
         return self.interpreter and self.interpreter.context.get("profile")
 
+    @cached_property
+    def context(self) -> dict:
+        return {}
+
     def __getstate__(self):
         if self.interpreter:
             self.interpreter_state = self.interpreter.state
@@ -47,6 +60,3 @@ class ProgramState(BaseModel):
         del data["interpreter"]
         state["__dict__"] = data
         return state
-
-    def __getitem__(self, item):
-        return self.answers[item]
