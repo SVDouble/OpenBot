@@ -16,4 +16,6 @@ class ReferralLinkRepository(BaseRoModelRepository[ReferralLink]):
     async def _get_retrieve_kwargs(self, id_: ID, **kwargs) -> dict | None:
         if id_ is None:
             alias = kwargs.get("alias")
-            return {"params": {"alias": alias} if alias else {"is_default": True}}
+            params = {"alias": alias} if alias else {"is_default": True}
+            params["bot"] = settings.bot_id
+            return {"params": params}

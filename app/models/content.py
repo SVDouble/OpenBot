@@ -3,11 +3,11 @@ from enum import Enum, unique
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Json
+from pydantic import BaseModel
 
 from app.utils import get_settings
 
-__all__ = ["Content", "ContentType"]
+__all__ = ["Content", "ContentType", "HashableDict"]
 
 settings = get_settings()
 
@@ -32,30 +32,37 @@ class ContentType(str, Enum):
 _float_type = float
 
 
+class HashableDict(dict):
+    def __hash__(self):
+        return hash(tuple(sorted(self.items())))
+
+
 class Content(BaseModel):
     class Config:
         frozen = True
 
-    bot: UUID = settings.bot.id
+    bot: UUID = settings.bot_id
     owner: UUID | None = None
     type: ContentType
     description: str | None = None
-    metadata: Json | None = None
+    metadata: HashableDict | None = None
     date_created: datetime.datetime = datetime.datetime.utcnow()
 
     text: str | None = None
     boolean: bool | None = None
     integer: int | None = None
     float: _float_type | None = None
-    number_range: dict | None = None
+    number_range: HashableDict | None = None
     date: datetime.datetime | None = None
-    date_range: dict | None = None
-    location: dict | None = None
+    date_range: HashableDict | None = None
+    location: HashableDict | None = None
     tag: UUID | None = None
     city: UUID | None = None
     university: UUID | None = None
     photo: str | None = None
+    photo_url: str | None = None
     file: str | None = None
+    file_url: str | None = None
 
     @property
     def value(self) -> Any | None:

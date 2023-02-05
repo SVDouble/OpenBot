@@ -23,7 +23,9 @@ class ProgramStateRepository(BaseRwModelRepository[ProgramState]):
     async def load_for_user(self, telegram_id: int, app: Application) -> ProgramState:
         from app.engine import UserInterpreter
 
-        user = await self.core.users.get(telegram_id=telegram_id, app=app)
+        user = await self.core.users.get_or_create(
+            telegram_id=telegram_id, context={"app": app}
+        )
         state = await self.get_or_create(user.state_id, user=user)
         if user.state_id != state.id:
             user.state_id = state.id

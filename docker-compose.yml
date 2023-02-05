@@ -39,6 +39,24 @@ services:
       retries: 10
     restart: unless-stopped
 
+  redis-gui:
+    image: docker.io/redislabs/redisinsight:latest
+    container_name: 'easybot_redis_gui'
+    networks:
+      - easybot
+      - traefik_proxy
+    environment:
+      RITRUSTEDORIGINS: "https://redis.${SERVER_NAME}"
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.docker.network=traefik_proxy'
+      - "traefik.http.routers.redis-gui.tls=true"
+      - "traefik.http.routers.redis-gui.entrypoints=https"
+      - "traefik.http.routers.redis-gui.rule=Host(`redis.${SERVER_NAME}`)"
+      - 'traefik.http.routers.redis-gui.middlewares=no-auth-secured@file'
+      - "traefik.http.services.redis-gui.loadbalancer.server.port=8001"
+
+
 volumes:
   easybot_redis_data:
 

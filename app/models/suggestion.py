@@ -13,7 +13,7 @@ settings = get_settings()
 
 class Suggestion(BaseModel):
     id: UUID
-    bot: UUID = settings.bot.id
+    bot: UUID = settings.bot_id
     owner: UUID
     candidate: UUID
     score: float

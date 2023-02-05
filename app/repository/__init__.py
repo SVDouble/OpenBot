@@ -9,8 +9,8 @@ from app.repository.question import QuestionRepository
 from app.repository.referral_link import ReferralLinkRepository
 from app.repository.role import RoleRepository
 from app.repository.statechart import StatechartRepository
-from app.repository.user import UserRepository
 from app.repository.suggestion import SuggestionRepository
+from app.repository.user import UserRepository
 
 __all__ = [
     "Repository",

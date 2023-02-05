@@ -13,7 +13,7 @@ settings = get_settings()
 
 class Trait(BaseModel):
     id: UUID
-    bot: UUID = settings.bot.id
+    bot: UUID = settings.bot_id
     name: str
     emoji: str = ""
     is_visible: bool = True

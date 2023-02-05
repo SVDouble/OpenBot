@@ -2,7 +2,7 @@ from app.models.account import Account
 from app.models.answer import Answer
 from app.models.bot import Bot
 from app.models.callback import Callback
-from app.models.content import Content, ContentType
+from app.models.content import Content, ContentType, HashableDict
 from app.models.content_validator import ContentValidator
 from app.models.option import Option
 from app.models.program_state import ProgramState
@@ -36,4 +36,5 @@ __all__ = [
     "Answer",
     "Suggestion",
     "Role",
+    "HashableDict",
 ]

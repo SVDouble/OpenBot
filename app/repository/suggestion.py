@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.models import Suggestion
-from app.repository.model import BaseRoModelRepository, ID
+from app.repository.model import ID, BaseRoModelRepository
 from app.utils import get_settings
 
 __all__ = ["SuggestionRepository"]

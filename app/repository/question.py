@@ -15,4 +15,4 @@ class QuestionRepository(BaseRoModelRepository[Question]):
 
     async def _get_retrieve_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
         if id_ is None:
-            return {"params": {"bot": str(settings.bot.id), "label": kwargs["label"]}}
+            return {"params": {"bot": str(settings.bot_id), "label": kwargs["label"]}}

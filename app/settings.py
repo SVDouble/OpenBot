@@ -1,6 +1,7 @@
 from functools import cached_property
 from pathlib import Path
 from typing import Literal
+from uuid import UUID
 
 from pydantic import AnyUrl, BaseSettings
 from pydantic import PostgresDsn as BasePostgresDsn
@@ -26,7 +27,8 @@ class Settings(BaseSettings):
     project_root: Path = Path(__file__).parent.parent
     static_root: Path = project_root / "static"
 
-    bot: Bot
+    bot_id: UUID
+    bot: Bot | None = None
 
     postgres_url: PostgresDsn
     redis_url: AnyUrl

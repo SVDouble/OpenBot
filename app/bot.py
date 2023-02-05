@@ -12,7 +12,14 @@ from app.models import ProgramState
 from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
 
-__all__ = ["handle_message", "handle_command", "handle_callback_query", "commands"]
+__all__ = [
+    "handle_message",
+    "handle_command",
+    "handle_callback_query",
+    "handle_document",
+    "handle_photo",
+    "commands",
+]
 
 logger = get_logger(__file__)
 settings = get_settings()
@@ -129,3 +136,25 @@ async def handle_callback_query(
         await state.interpreter.dispatch_event("received callback query")
     else:
         await query.answer(text="This callback has expired")
+
+
+@modifies_state
+async def handle_photo(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    state: ProgramState,
+) -> None:
+    state.interpreter.context["message"] = update.effective_message
+    state.interpreter.context["photo"] = update.effective_message.photo
+    await state.interpreter.dispatch_event("received photo")
+
+
+@modifies_state
+async def handle_document(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    state: ProgramState,
+) -> None:
+    state.interpreter.context["message"] = update.effective_message
+    state.interpreter.context["document"] = update.effective_message.document
+    await state.interpreter.dispatch_event("received document")

@@ -13,7 +13,7 @@ class AnswerRepository(BaseRwModelRepository[Answer]):
     ex = settings.cache_ex_answers
     url = "/answers"
 
-    async def create(self, answer: Answer, **kwargs) -> Answer:
+    async def create(self, answer: Answer, **_) -> Answer:
         data = answer.json(exclude_none=True)
         headers = {"Content-Type": "application/json"}
         response = await self.core.httpx.post(

@@ -14,7 +14,7 @@ settings = get_settings()
 
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    bot: UUID = settings.bot.id
+    bot: UUID = settings.bot_id
     name: str
     emoji: str = ""
     label: str

@@ -4,10 +4,12 @@ from re import sub
 from typing import Any, Callable, Self, Sequence, Type
 
 from pydantic import BaseModel, PrivateAttr
+from telegram import Document, PhotoSize
 
 from app.exceptions import ValidationError
 from app.models import Content
 from app.models import ContentType as CT
+from app.models import HashableDict
 from app.utils import get_settings
 
 __all__ = ["ContentValidator"]
@@ -64,17 +66,23 @@ class ContentValidator(BaseModel):
         except ValidationError:
             return hash((self.type, self.value))
 
-    def get_content(self) -> Content:
+    async def get_content(self) -> Content:
         payload = self.payload
         type_ = self.type.value
-        metadata = None
         if type_ in ("photo", "file"):
-            metadata = {
-                "file_unique_id": payload.file_unique_id,
-                "file_id": payload.file_id,
-            }
-            payload = payload.get_file().file_path
-        return Content(**{"type": type_, type_: payload, "metadata": metadata})
+            file = await payload.get_file()
+            return Content(
+                **{
+                    "type": type_,
+                    f"{type_}_url": file.file_path,
+                    "metadata": HashableDict(
+                        file_unique_id=payload.file_unique_id,
+                        file_id=payload.file_id,
+                        bot=settings.bot.username,
+                    ),
+                }
+            )
+        return Content(**{"type": type_, type_: payload})
 
     @cached_property
     def payload(self) -> Any:
@@ -87,9 +95,7 @@ class ContentValidator(BaseModel):
 
         def require(arg, type_):
             if not isinstance(arg, type_):
-                raise ValueError(
-                    f"Invalid content type supplied: {type(arg)} (required: {type_})"
-                )
+                raise ValidationError(codes.INVALID_VALUE)
 
         def parse_integer(integer: str) -> int:
             require(integer, str)
@@ -181,6 +187,12 @@ class ContentValidator(BaseModel):
                 ):
                     raise ValidationError(codes.INVALID_VALUE)
                 self._payload = loc
+            case CT.PHOTO:
+                require(self.value, PhotoSize)
+                self._payload = self.value
+            case CT.FILE:
+                require(self.value, Document)
+                self._payload = self.value
             case _:
                 # TODO: check university, city and tag types
                 self._payload = self.value

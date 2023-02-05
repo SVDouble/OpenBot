@@ -26,7 +26,7 @@ class ProgramState(BaseModel):
 
     # survey-related
     question: Question | None = None
-    answers: dict[str, Any] = Field(default_factory=dict)
+    answers: dict[str, dict] = Field(default_factory=dict)
     inputs: dict[str, ContentValidator] = Field(default_factory=dict)
     selected_options: dict[UUID, Option] = Field(default_factory=dict)
     created_options: set[Content] = Field(default_factory=set)

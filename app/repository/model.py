@@ -84,20 +84,31 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
             return f"{self.url}/"
         return f"{self.url}/{id_}/"
 
-    def _extract(self, data: Any, id_: ID | None, many: bool = False, **kwargs) -> Any:
+    def _extract(
+        self, data: Any, id_: ID | None, *, many: bool = False, **kwargs
+    ) -> Any:
         if many:
             return data
         if isinstance(data, list):
             return data[0]
         return data
 
-    async def _get_retrieve_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
+    async def _get_retrieve_kwargs(
+        self, id_: ID | None, *, context: dict = None, **kwargs
+    ) -> dict | None:
         return None
 
     async def _retrieve(
-        self, id_: ID | None = None, many: bool = False, **kwargs
+        self,
+        id_: ID | None = None,
+        *,
+        context: dict = None,
+        many: bool = False,
+        **kwargs,
     ) -> ModelClass | list[ModelClass] | None:
-        request_kwargs = await self._get_retrieve_kwargs(id_, **kwargs) or {}
+        request_kwargs = (
+            await self._get_retrieve_kwargs(id_, context=context, **kwargs) or {}
+        )
         response = await self.core.httpx.get(
             self._make_url(id_, **kwargs), **request_kwargs
         )
@@ -115,25 +126,38 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
             return self.model.parse_obj(data)
 
     async def get(
-        self, id_: ID | None = None, many: bool = False, **kwargs
+        self,
+        id_: ID | None = None,
+        *,
+        context: dict = None,
+        many: bool = False,
+        **kwargs,
     ) -> ModelClass | list[ModelClass] | None:
         if (obj := await self.load(id_, **kwargs)) is not None:
             return obj
-        if (obj := await self._retrieve(id_, many=many, **kwargs)) is not None:
+        if (
+            obj := await self._retrieve(id_, context=context, many=many, **kwargs)
+        ) is not None:
             await self.save(obj, id_, **kwargs)
             return obj
 
 
 class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
-    async def _get_create_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
+    async def _get_create_kwargs(
+        self, id_: ID | None, *, context: dict = None, **kwargs
+    ) -> dict | None:
         if isinstance(id_, self.model):
             data = id_.json(exclude_none=True)
             headers = {"Content-Type": "application/json"}
             return {"headers": headers, "content": data}
         return None
 
-    async def create(self, id_: ID | None, **kwargs) -> ModelClass:
-        request_kwargs = await self._get_create_kwargs(id_, **kwargs) or {}
+    async def create(
+        self, id_: ID | None, *, context: dict = None, **kwargs
+    ) -> ModelClass:
+        request_kwargs = (
+            await self._get_create_kwargs(id_, context=context, **kwargs) or {}
+        )
         if not request_kwargs:
             raise RuntimeError(f"Cannot create {self.model.__name__}: no content given")
         response = await self.core.httpx.post(f"{self.url}/", **request_kwargs)
@@ -142,10 +166,12 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         await self.save(obj, id_, **kwargs)
         return obj
 
-    async def get_or_create(self, id_: ID | None = None, **kwargs) -> ModelClass:
-        if (obj := await self.get(id_, **kwargs)) is not None:
+    async def get_or_create(
+        self, id_: ID | None = None, *, context: dict = None, **kwargs
+    ) -> ModelClass:
+        if (obj := await self.get(id_, context=context, **kwargs)) is not None:
             return obj
-        if (obj := await self.create(id_, **kwargs)) is not None:
+        if (obj := await self.create(id_, context=context, **kwargs)) is not None:
             return obj
         raise RuntimeError(f"Could not get or create {self.model.__name__}")
 

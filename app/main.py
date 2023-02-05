@@ -11,7 +11,14 @@ from telegram.ext import (
     filters,
 )
 
-from app.bot import commands, handle_callback_query, handle_command, handle_message
+from app.bot import (
+    commands,
+    handle_callback_query,
+    handle_command,
+    handle_document,
+    handle_message,
+    handle_photo,
+)
 from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
 
@@ -63,7 +70,7 @@ async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
 
 async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):
     trigger: asyncio.Event = context.job.data["trigger"]
-    settings.bot = await repo.bots.get(settings.bot.id)
+    settings.bot = await repo.bots.get(settings.bot_id)
     if not trigger.is_set():
         trigger.set()
 
@@ -72,10 +79,17 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> No
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
 
-def main():
+async def initialize_bot():
     logger.info("Initializing the bot...")
+    settings.bot = await repo.bots.get(settings.bot_id)
     logger.info("Using the following settings: ")
     logger.info(settings)
+
+
+def main():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(initialize_bot())
+
     update_trigger = asyncio.Event()
     app = (
         Application.builder()
@@ -89,6 +103,8 @@ def main():
             *[CommandHandler(name, callback) for name, callback in commands.items()],
             MessageHandler(filters.COMMAND, handle_command),
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message),
+            MessageHandler(filters.PHOTO, handle_photo),
+            MessageHandler(filters.Document.ALL, handle_document),
             CallbackQueryHandler(handle_callback_query),
         ]
     )

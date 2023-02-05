@@ -2,7 +2,7 @@ import asyncio
 from typing import Any
 
 from jinja2 import DictLoader, Environment
-from telegram import InlineKeyboardButton, Message
+from telegram import Document, InlineKeyboardButton, Message, PhotoSize
 from telegram.constants import ParseMode
 
 from app.exceptions import ValidationError
@@ -24,19 +24,33 @@ __all__ = [
 logger = get_logger(__file__)
 
 
-def get_answer(state: ProgramState) -> Any:
-    answer = {
-        ContentValidator(
-            type=state.question.content_type,
-            value=option.content.value,
-        ).get_content()
-        for option in state.selected_options.values()
-    } | state.created_options
-    answer = {content.value for content in answer}
-    if state.question.allow_multiple_choices:
-        return answer
-    if answer:
-        return answer.pop()
+async def get_answer(
+    state: ProgramState, question_label: str, *, key: str | None = None
+) -> Any:
+    if state.question and state.question.label == question_label:
+        contents = {
+            await ContentValidator(
+                type=state.question.content_type,
+                value=option.content.value,
+            ).get_content()
+            for option in state.selected_options.values()
+        } | state.created_options
+        values = {content.value for content in contents}
+        answer = {
+            "value": values,
+            "option": set(state.selected_options.keys()),
+            "label": set(option.label for option in state.selected_options.values()),
+            "is_multivalued": state.question.allow_multiple_choices,
+        }
+    else:
+        answer = state.answers[question_label]
+
+    if key is not None:
+        data = answer[key]
+        if not answer["is_multivalued"]:
+            data = data.pop() if data else None
+        return data
+    return answer
 
 
 def expect(state: ProgramState, **inputs):
@@ -66,33 +80,40 @@ async def make_inline_button(
     return InlineKeyboardButton(name, callback_data=str(callback.id))
 
 
-def clean_input(
+async def clean_input(
     state: ProgramState,
     message: Message | None = None,
     callback: Callback | None = None,
+    photo: tuple[PhotoSize, ...] | None = None,
+    document: Document | None = None,
 ) -> tuple[str, Content] | None:
-    if not (message is None) ^ (callback is None):
-        raise RuntimeError("either message or callback must be specified")
-    # noinspection PyUnresolvedReferences
-    text = message.text if callback is None else callback.data
-
-    if not text:
-        return
+    if message is not None:
+        value = message.text
+    elif callback:
+        value = callback.data
+    elif photo:
+        value = photo[-1]
+    elif document:
+        value = document
+    else:
+        raise RuntimeError("At least one source must be specified")
 
     for target, constraint in sorted(state.inputs.items(), key=lambda item: item[1]):
         validator = ContentValidator(
-            type=constraint.type, value=text, options=constraint.options
+            type=constraint.type,
+            value=value,
+            options=constraint.options,
         )
         try:
             validator.clean()
         except ValidationError:
             continue
         else:
-            return target, validator.get_content()
+            return target, await validator.get_content()
 
 
 async def save_answer(state: ProgramState, repo: Repository):
-    answer = get_answer(state)
+    answer = await get_answer(state, state.question.label)
     state.answers[state.question.label] = answer
     if trait := state.question.user_trait:
         setattr(state.profile, trait.column, answer)
@@ -103,10 +124,19 @@ async def save_answer(state: ProgramState, repo: Repository):
                     question=state.question.id,
                     user_trait=trait.id,
                     selected_options=list(state.selected_options.keys()),
-                    created_options=state.created_options,
+                    created_options=[
+                        Content(
+                            **(
+                                content.dict(exclude_none=True)
+                                | {"owner": state.user.id}
+                            )
+                        )
+                        for content in state.created_options
+                    ],
                 )
             )
         )
+    return answer
 
 
 async def render_template(

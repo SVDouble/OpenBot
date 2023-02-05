@@ -13,7 +13,7 @@ settings = get_settings()
 
 class Answer(BaseModel):
     id: UUID | None
-    bot: UUID = settings.bot.id
+    bot: UUID = settings.bot_id
     owner: UUID
     question: UUID
     user_trait: UUID
