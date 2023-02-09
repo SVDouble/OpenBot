@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.utils import get_settings
 
-__all__ = ["Content", "ContentType", "HashableDict"]
+__all__ = ["Content", "ContentType"]
 
 settings = get_settings()
 
@@ -32,11 +32,6 @@ class ContentType(str, Enum):
 _float_type = float
 
 
-class HashableDict(dict):
-    def __hash__(self):
-        return hash(tuple(sorted(self.items())))
-
-
 class Content(BaseModel):
     class Config:
         frozen = True
@@ -45,17 +40,17 @@ class Content(BaseModel):
     owner: UUID | None = None
     type: ContentType
     description: str | None = None
-    metadata: HashableDict | None = None
+    metadata: dict | None = None
     date_created: datetime.datetime = datetime.datetime.utcnow()
 
     text: str | None = None
     boolean: bool | None = None
     integer: int | None = None
     float: _float_type | None = None
-    number_range: HashableDict | None = None
+    number_range: dict | None = None
     date: datetime.datetime | None = None
-    date_range: HashableDict | None = None
-    location: HashableDict | None = None
+    date_range: dict | None = None
+    location: dict | None = None
     tag: UUID | None = None
     city: UUID | None = None
     university: UUID | None = None

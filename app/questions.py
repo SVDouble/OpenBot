@@ -11,7 +11,7 @@ from telegram import (
 __all__ = ["QuestionManager"]
 
 from app.engine.logic import make_inline_button
-from app.models import Option, ProgramState
+from app.models import Cache, Option
 from app.repository import Repository
 from app.utils import get_logger, get_settings
 
@@ -24,7 +24,7 @@ class QuestionManager:
     action_save_answer = "save answer"
     action_create_option = "create option"
 
-    def __init__(self, state: ProgramState, repo: Repository):
+    def __init__(self, state: Cache, repo: Repository):
         self.state = state
         self.repo = repo
         self.question = state.question
@@ -124,7 +124,7 @@ class QuestionManager:
             del self.state.selected_options[uuid]
         else:
             if option.is_dynamic:
-                self.state.created_options.add(
+                self.state.created_options.append(
                     await option.generate_content(self.state, self.repo)
                 )
             else:

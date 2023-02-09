@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.engine.core import BaseEvaluator, BaseInterpreter
-from app.models import ProgramState, Question, Role, Statechart, Suggestion
+from app.models import Cache, Question, Role, Statechart, Suggestion
 from app.repository import Repository
 from app.utils import get_logger
 
@@ -38,30 +38,30 @@ class UserEvaluator(BaseEvaluator):
             return await repo.questions.get(label=label)
 
         async def get_next_suggestion() -> Suggestion | None:
-            return await repo.suggestions.pop(user_id=state.user.id)
+            return await repo.suggestions.pop(user_id=cache.user.id)
 
         async def get_answer(question_label: str, *, key: str | None = "value"):
-            return await logic.get_answer(state, question_label, key=key)
+            return await logic.get_answer(cache, question_label, key=key)
 
         return {
             "bot": interpreter.app.bot,
-            "state": (state := interpreter.program_state),
+            "cache": (cache := interpreter.cache),
             "repo": repo,
-            "user": state.user,
-            "question": state.question,
-            "answers": state.answers,
+            "user": cache.user,
+            "question": cache.question,
+            "answers": cache.answers,
             "debug": logger.debug,
-            "expect": partial(logic.expect, state),
-            "release": partial(logic.release, state),
-            "clean_input": partial(logic.clean_input, state),
-            "save_answer": partial(logic.save_answer, state, repo),
+            "expect": partial(logic.expect, cache),
+            "release": partial(logic.release, cache),
+            "clean_input": partial(logic.clean_input, cache),
+            "save_answer": partial(logic.save_answer, cache, repo),
             "get_question": get_question,
             "get_answer": get_answer,
             "get_next_suggestion": get_next_suggestion,
-            "make_inline_button": partial(logic.make_inline_button, state, repo),
-            "render_template": partial(logic.render_template, state, repo),
-            "render_question": partial(logic.render_question, state, repo),
-            "get_question_manager": lambda: QuestionManager(state, repo),
+            "make_inline_button": partial(logic.make_inline_button, cache, repo),
+            "render_template": partial(logic.render_template, cache, repo),
+            "render_question": partial(logic.render_question, cache, repo),
+            "get_question_manager": lambda: QuestionManager(cache, repo),
         }
 
 
@@ -69,14 +69,14 @@ class UserInterpreter(BaseInterpreter):
     def __init__(
         self,
         *,
-        state: ProgramState,
+        cache: Cache,
         app: Application,
         statechart: Statechart,
         role: Role,
         repo: Repository,
     ):
         super().__init__(statechart, evaluator_klass=UserEvaluator)
-        self.program_state = state
+        self.cache = cache
         self.role = role
         self.app = app
         self.repo = repo

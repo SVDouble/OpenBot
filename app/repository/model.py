@@ -109,6 +109,8 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
         request_kwargs = (
             await self._get_retrieve_kwargs(id_, context=context, **kwargs) or {}
         )
+        if id_ is None and not request_kwargs:
+            return None
         response = await self.core.httpx.get(
             self._make_url(id_, **kwargs), **request_kwargs
         )
@@ -147,7 +149,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         self, id_: ID | None, *, context: dict = None, **kwargs
     ) -> dict | None:
         if isinstance(id_, self.model):
-            data = id_.json(exclude_none=True)
+            data = id_.json(exclude_none=True, by_alias=True)
             headers = {"Content-Type": "application/json"}
             return {"headers": headers, "content": data}
         return None

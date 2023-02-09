@@ -33,7 +33,8 @@ class Repository:
         self.httpx = self._get_httpx_client()
 
         self.callbacks = repos.CallbackRepository(self)
-        self.states = repos.ProgramStateRepository(self)
+        self.states = repos.StateRepository(self)
+        self.caches = repos.CacheRepository(self)
         self.statecharts = repos.StatechartRepository(self)
         self.bots = repos.BotRepository(self)
         self.contents = repos.ContentRepository(self)

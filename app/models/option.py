@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from app.models import Content
+from app.models.content import Content
 from app.utils import get_settings
 
 __all__ = ["Option"]

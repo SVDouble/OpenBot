@@ -25,7 +25,7 @@ class User(BaseModel):
     bot: UUID
     role: UUID
     referral_link: UUID
-    state_id: UUID | None = None
+    state: UUID | None
     is_staff: bool
     is_active: bool
     is_registered: bool

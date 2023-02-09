@@ -13,13 +13,13 @@ from telegram.ext import (
 
 from app.bot import (
     commands,
+    get_cache,
     handle_callback_query,
     handle_command,
     handle_document,
     handle_message,
     handle_photo,
 )
-from app.profile import Session, get_profile
 from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
@@ -60,12 +60,8 @@ async def post_init(app: Application, *, update_trigger: asyncio.Event):
 async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"running user logic, users={await repo.get_active_user_ids()}")
     for uid in await repo.get_active_user_ids():
-        state = await repo.states.load_for_user(uid, context.application)
-        with Session.begin() as session:
-            profile = get_profile(session, state.interpreter.role.label, state.user.id)
-            state.interpreter.context.update(profile=profile)
-            await state.interpreter.dispatch_event("clock")
-            await repo.states.save(state)
+        async with get_cache(uid, context.application) as cache:
+            await cache.interpreter.dispatch_event("clock")
 
 
 async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):

@@ -7,9 +7,8 @@ from pydantic import BaseModel, PrivateAttr
 from telegram import Document, PhotoSize
 
 from app.exceptions import ValidationError
-from app.models import Content
-from app.models import ContentType as CT
-from app.models import HashableDict
+from app.models.content import Content
+from app.models.content import ContentType as CT
 from app.utils import get_settings
 
 __all__ = ["ContentValidator"]
@@ -75,11 +74,11 @@ class ContentValidator(BaseModel):
                 **{
                     "type": type_,
                     f"{type_}_url": file.file_path,
-                    "metadata": HashableDict(
-                        file_unique_id=payload.file_unique_id,
-                        file_id=payload.file_id,
-                        bot=settings.bot.username,
-                    ),
+                    "metadata": {
+                        "file_unique_id": payload.file_unique_id,
+                        "file_id": payload.file_id,
+                        "bot": settings.bot.username,
+                    },
                 }
             )
         return Content(**{"type": type_, type_: payload})
@@ -133,7 +132,7 @@ class ContentValidator(BaseModel):
             else:
                 if upper <= 0:
                     raise ValidationError(codes.INVALID_VALUE)
-                return dict(lower=upper, upper=upper, bounds="[]")
+                return {"lower": upper, "upper": upper, "bounds": "[]"}
 
             try:
                 lower, upper, *garbage = range_.split("-")
@@ -153,7 +152,7 @@ class ContentValidator(BaseModel):
                 raise ValidationError(codes.INVALID_ORDER)
             elif lower <= 0:
                 raise ValidationError(codes.INVALID_VALUE)
-            return dict(lower=lower, upper=upper, bounds="[]")
+            return {"lower": lower, "upper": upper, "bounds": "[]"}
 
         match self.type:
             case CT.TEXT:

@@ -7,7 +7,7 @@ from sismic.io.datadict import import_from_dict
 
 from app.asismic.interpreter import AsyncInterpreter
 from app.asismic.python import AsyncPythonEvaluator
-from app.models import Statechart
+from app.models import InterpreterCache, Statechart
 from app.utils import get_logger, get_settings
 
 __all__ = ["BaseInterpreter", "BaseEvaluator"]
@@ -93,7 +93,7 @@ class BaseInterpreter(AsyncInterpreter):
         return self._evaluator.context
 
     @property
-    def state(self) -> dict:
+    def state_cache(self) -> InterpreterCache:
         keys = {
             # default data
             "_ignore_contract",
@@ -109,4 +109,4 @@ class BaseInterpreter(AsyncInterpreter):
             # custom data
             "_is_initialized",  # show whether preamble was run
         }
-        return {k: v for k, v in self.__dict__.items() if k in keys}
+        return InterpreterCache(**{k: v for k, v in self.__dict__.items() if k in keys})

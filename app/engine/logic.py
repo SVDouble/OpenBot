@@ -6,7 +6,7 @@ from telegram import Document, InlineKeyboardButton, Message, PhotoSize
 from telegram.constants import ParseMode
 
 from app.exceptions import ValidationError
-from app.models import Answer, Callback, Content, ContentValidator, ProgramState, User
+from app.models import Answer, Cache, Callback, Content, ContentValidator, User
 from app.repository import Repository
 from app.utils import get_logger
 
@@ -25,17 +25,17 @@ logger = get_logger(__file__)
 
 
 async def get_answer(
-    state: ProgramState, question_label: str, *, key: str | None = None
+    state: Cache, question_label: str, *, key: str | None = None
 ) -> Any:
     if state.question and state.question.label == question_label:
-        contents = {
+        contents = [
             await ContentValidator(
                 type=state.question.content_type,
                 value=option.content.value,
             ).get_content()
             for option in state.selected_options.values()
-        } | state.created_options
-        values = {content.value for content in contents}
+        ] + state.created_options
+        values = [content.value for content in contents]
         answer = {
             "value": values,
             "option": set(state.selected_options.keys()),
@@ -53,7 +53,7 @@ async def get_answer(
     return answer
 
 
-def expect(state: ProgramState, **inputs):
+def expect(state: Cache, **inputs):
     state.inputs.update(
         {
             k: v if isinstance(v, ContentValidator) else ContentValidator(type=v)
@@ -62,13 +62,13 @@ def expect(state: ProgramState, **inputs):
     )
 
 
-def release(state: ProgramState, *names: str):
+def release(state: Cache, *names: str):
     for name in names:
         state.inputs.pop(name, None)
 
 
 async def make_inline_button(
-    state: ProgramState, repo: Repository, name: str, **kwargs
+    state: Cache, repo: Repository, name: str, **kwargs
 ) -> InlineKeyboardButton:
     callback = Callback(
         state_id=state.id,
@@ -81,7 +81,7 @@ async def make_inline_button(
 
 
 async def clean_input(
-    state: ProgramState,
+    state: Cache,
     message: Message | None = None,
     callback: Callback | None = None,
     photo: tuple[PhotoSize, ...] | None = None,
@@ -112,7 +112,7 @@ async def clean_input(
             return target, await validator.get_content()
 
 
-async def save_answer(state: ProgramState, repo: Repository):
+async def save_answer(state: Cache, repo: Repository):
     answer = await get_answer(state, state.question.label)
     state.answers[state.question.label] = answer
     if trait := state.question.user_trait:
@@ -140,7 +140,7 @@ async def save_answer(state: ProgramState, repo: Repository):
 
 
 async def render_template(
-    state: ProgramState, repo: Repository, template_: str, **kwargs
+    state: Cache, repo: Repository, template_: str, **kwargs
 ) -> str:
     loader = DictLoader({"__template__": template_})
     environment = Environment(
@@ -170,7 +170,7 @@ async def render_template(
     return await template.render_async(context)
 
 
-async def render_question(state: ProgramState, repo: Repository) -> dict:
+async def render_question(state: Cache, repo: Repository) -> dict:
     photos: list[str] = []
     text = await render_template(
         state,
