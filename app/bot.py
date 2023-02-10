@@ -44,13 +44,6 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("pong")
 
 
-async def get_active_states(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    cache = await repo.caches.load_for_user(
-        update.effective_user.id, context.application
-    )
-    await update.message.reply_text(f"active states: {cache.interpreter.configuration}")
-
-
 async def dump_cache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         arg = context.args.pop()
@@ -60,12 +53,11 @@ async def dump_cache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     cache = await repo.caches.load_for_user(
         update.effective_user.id, context.application
     )
-    data = json.dumps(
-        cache.dict(exclude_none=True).get(arg, None),
-        default=pydantic_encoder,
-        ensure_ascii=False,
-        indent=4,
-    )
+    if arg == "state":
+        data = cache.interpreter.configuration
+    else:
+        data = cache.dict(exclude_none=True).get(arg, None)
+    data = json.dumps(data, default=pydantic_encoder, ensure_ascii=False, indent=4)
     await update.message.reply_text(
         f"<code>{html.escape(data)}</code>",
         parse_mode=ParseMode.HTML,
@@ -75,7 +67,6 @@ async def dump_cache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 commands = {
     "reset": reset,
     "ping": ping,
-    "state": get_active_states,
     "dump": dump_cache,
 }
 
@@ -96,7 +87,7 @@ async def get_cache(telegram_id: int, app: Application):
             await repo.states.patch(state)
         except HTTPStatusError:
             await app.bot.send_message(
-                "We've reset your account, so you can start anew"
+                telegram_id, "We've reset your account, so you can start anew"
             )
             await repo.users.remove(cache.user)
         else:

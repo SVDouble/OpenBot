@@ -23,7 +23,6 @@ def init_redis_client(decode_responses=True) -> redis.Redis:
     )
 
 
-# noinspection PyMethodMayBeStatic
 class Repository:
     def __init__(self):
         import app.repository as repos
@@ -45,6 +44,7 @@ class Repository:
         self.accounts = repos.AccountRepository(self)
         self.answers = repos.AnswerRepository(self)
         self.suggestions = repos.SuggestionRepository(self)
+        self.feedbacks = repos.FeedbackRepository(self)
 
     def _get_httpx_client(self) -> AsyncClient:
         token = httpx.post(

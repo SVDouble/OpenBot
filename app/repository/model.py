@@ -195,3 +195,16 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         obj = self.model.parse_obj(response.json())
         await self.save(obj)
         return obj
+
+    async def _get_delete_kwargs(
+        self, id_: ID, *, context: dict = None, **kwargs
+    ) -> dict | None:
+        return None
+
+    async def delete(self, id_: ID, context: dict = None, **kwargs) -> None:
+        if isinstance(id_, self.model):
+            id_ = getattr(id_, self.id_field)
+        requests_kwargs = await self._get_delete_kwargs(id_, context=context, **kwargs)
+        requests_kwargs = requests_kwargs or {}
+        response = await self.core.httpx.delete(f"{self.url}/{id_}/", **requests_kwargs)
+        response.raise_for_status()

@@ -5,6 +5,7 @@ from app.repository.cache import CacheRepository
 from app.repository.callback import CallbackRepository
 from app.repository.content import ContentRepository
 from app.repository.core import Repository
+from app.repository.feedback import FeedbackRepository
 from app.repository.question import QuestionRepository
 from app.repository.referral_link import ReferralLinkRepository
 from app.repository.role import RoleRepository
@@ -28,4 +29,5 @@ __all__ = [
     "StateRepository",
     "SuggestionRepository",
     "CacheRepository",
+    "FeedbackRepository",
 ]

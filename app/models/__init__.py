@@ -5,6 +5,7 @@ from app.models.cache import Cache, InterpreterCache
 from app.models.callback import Callback
 from app.models.content import Content, ContentType
 from app.models.content_validator import ContentValidator
+from app.models.feedback import Feedback
 from app.models.option import Option
 from app.models.question import Question
 from app.models.referral_link import ReferralLink
@@ -34,4 +35,5 @@ __all__ = [
     "Suggestion",
     "Role",
     "Statechart",
+    "Feedback",
 ]

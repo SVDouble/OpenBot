@@ -9,6 +9,7 @@ from app.models.content_validator import ContentValidator
 from app.models.option import Option
 from app.models.question import Question
 from app.models.state import State
+from app.models.suggestion import Suggestion
 from app.models.user import User
 from app.utils import get_logger, get_settings
 
@@ -19,6 +20,9 @@ settings = get_settings()
 
 
 class InterpreterCache(BaseModel):
+    class Config:
+        allow_population_by_field_name = True
+
     ignore_contract: bool = Field(alias="_ignore_contract")
     # shows whether the statechart was executed at least once
     initialized: bool = Field(alias="_initialized")
@@ -50,7 +54,7 @@ class Cache(BaseModel):
     is_reply_keyboard_set: bool = False
 
     # matching-related
-    suggestion: UUID | None = None
+    suggestion: Suggestion | None = None
 
     # service
     interpreter: Any = Field(default_factory=None, exclude=True)

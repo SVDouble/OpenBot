@@ -66,9 +66,10 @@ async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
 
 async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):
     trigger: asyncio.Event = context.job.data["trigger"]
-    settings.bot = await repo.bots.get(settings.bot_id)
-    if not trigger.is_set():
-        trigger.set()
+    if bot := await repo.bots.get(settings.bot_id):
+        settings.bot = bot
+        if not trigger.is_set():
+            trigger.set()
 
 
 async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:

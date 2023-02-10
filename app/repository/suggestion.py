@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.models import Suggestion
-from app.repository.model import ID, BaseRoModelRepository
+from app.repository.model import ID, BaseRwModelRepository
 from app.utils import get_settings
 
 __all__ = ["SuggestionRepository"]
@@ -9,7 +9,7 @@ __all__ = ["SuggestionRepository"]
 settings = get_settings()
 
 
-class SuggestionRepository(BaseRoModelRepository[Suggestion]):
+class SuggestionRepository(BaseRwModelRepository[Suggestion]):
     model = Suggestion
     key = "suggestions"
     ex = settings.cache_ex_suggestions

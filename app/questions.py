@@ -32,9 +32,7 @@ class QuestionManager:
         self.option_layout: list[list[Option]] = self._generate_option_layout(
             self.question.options
         )
-        self.is_inline = (
-            self.question.allow_multiple_choices or state.user.is_registered
-        )
+        self.is_inline = self.question.allow_multiple_choices
         for option in self.options:
             option.is_active = option.id in state.selected_options.keys()
 
@@ -123,12 +121,7 @@ class QuestionManager:
         if (uuid := option.id) in self.state.selected_options:
             del self.state.selected_options[uuid]
         else:
-            if option.is_dynamic:
-                self.state.created_options.append(
-                    await option.generate_content(self.state, self.repo)
-                )
-            else:
-                self.state.selected_options[uuid] = option
+            self.state.selected_options[uuid] = option
         option.is_active = not option.is_active
 
     @property

@@ -33,9 +33,6 @@ _float_type = float
 
 
 class Content(BaseModel):
-    class Config:
-        frozen = True
-
     bot: UUID = settings.bot_id
     owner: UUID | None = None
     type: ContentType

@@ -25,25 +25,20 @@ logger = get_logger(__file__)
 
 
 async def get_answer(
-    state: Cache, question_label: str, *, key: str | None = None
+    cache: Cache, question_label: str, *, key: str | None = None
 ) -> Any:
-    if state.question and state.question.label == question_label:
+    if cache.question and cache.question.label == question_label:
         contents = [
-            await ContentValidator(
-                type=state.question.content_type,
-                value=option.content.value,
-            ).get_content()
-            for option in state.selected_options.values()
-        ] + state.created_options
-        values = [content.value for content in contents]
+            opt.content for opt in cache.selected_options.values()
+        ] + cache.created_options
         answer = {
-            "value": values,
-            "option": set(state.selected_options.keys()),
-            "label": set(option.label for option in state.selected_options.values()),
-            "is_multivalued": state.question.allow_multiple_choices,
+            "value": [content.value for content in contents],
+            "option": set(cache.selected_options.keys()),
+            "label": set(option.label for option in cache.selected_options.values()),
+            "is_multivalued": cache.question.allow_multiple_choices,
         }
     else:
-        answer = state.answers[question_label]
+        answer = cache.answers[question_label]
 
     if key is not None:
         data = answer[key]
@@ -53,8 +48,8 @@ async def get_answer(
     return answer
 
 
-def expect(state: Cache, **inputs):
-    state.inputs.update(
+def expect(cache: Cache, **inputs):
+    cache.inputs.update(
         {
             k: v if isinstance(v, ContentValidator) else ContentValidator(type=v)
             for k, v in inputs.items()
@@ -62,17 +57,17 @@ def expect(state: Cache, **inputs):
     )
 
 
-def release(state: Cache, *names: str):
+def release(cache: Cache, *names: str):
     for name in names:
-        state.inputs.pop(name, None)
+        cache.inputs.pop(name, None)
 
 
 async def make_inline_button(
-    state: Cache, repo: Repository, name: str, **kwargs
+    cache: Cache, repo: Repository, name: str, **kwargs
 ) -> InlineKeyboardButton:
     callback = Callback(
-        state_id=state.id,
-        user_telegram_id=state.user.telegram_id,
+        state_id=cache.id,
+        user_telegram_id=cache.user.telegram_id,
         data=kwargs.pop("data", name),
         **kwargs,
     )
@@ -81,7 +76,7 @@ async def make_inline_button(
 
 
 async def clean_input(
-    state: Cache,
+    cache: Cache,
     message: Message | None = None,
     callback: Callback | None = None,
     photo: tuple[PhotoSize, ...] | None = None,
@@ -98,7 +93,7 @@ async def clean_input(
     else:
         raise RuntimeError("At least one source must be specified")
 
-    for target, constraint in sorted(state.inputs.items(), key=lambda item: item[1]):
+    for target, constraint in sorted(cache.inputs.items(), key=lambda item: item[1]):
         validator = ContentValidator(
             type=constraint.type,
             value=value,
@@ -112,46 +107,45 @@ async def clean_input(
             return target, await validator.get_content()
 
 
-async def save_answer(state: Cache, repo: Repository):
-    answer = await get_answer(state, state.question.label)
-    state.answers[state.question.label] = answer
-    if trait := state.question.user_trait:
-        setattr(state.profile, trait.column, answer)
-        asyncio.create_task(
-            repo.answers.create(
-                Answer(
-                    owner=state.user.id,
-                    question=state.question.id,
-                    user_trait=trait.id,
-                    selected_options=list(state.selected_options.keys()),
-                    created_options=[
-                        Content(
-                            **(
-                                content.dict(exclude_none=True)
-                                | {"owner": state.user.id}
-                            )
-                        )
-                        for content in state.created_options
-                    ],
-                )
-            )
+async def save_answer(cache: Cache, repo: Repository):
+    data = await get_answer(cache, cache.question.label)
+    cache.answers[cache.question.label] = data
+    if trait := cache.question.user_trait:
+        setattr(cache.profile, trait.column, data)
+        selected_options = [
+            opt.id for opt in cache.selected_options.values() if not opt.is_dynamic
+        ]
+        dynamic_contents = [
+            opt.content for opt in cache.selected_options.values() if opt.is_dynamic
+        ]
+        created_options = [
+            Content(**(content.dict(exclude_none=True) | {"owner": cache.user.id}))
+            for content in cache.created_options + dynamic_contents
+        ]
+        answer = Answer(
+            owner=cache.user.id,
+            question=cache.question.id,
+            user_trait=trait.id,
+            selected_options=selected_options,
+            created_options=created_options,
         )
-    return answer
+        asyncio.create_task(repo.answers.create(answer))
+    return data
 
 
 async def render_template(
-    state: Cache, repo: Repository, template_: str, **kwargs
+    cache: Cache, repo: Repository, template_: str, **kwargs
 ) -> str:
     loader = DictLoader({"__template__": template_})
     environment = Environment(
         loader=loader, extensions=["jinja2.ext.do"], enable_async=True
     )
     context = {
-        "state": state,
-        "user": state.user,
-        "answers": state.answers,
-        "profile": state.profile,
-        "context": state.context,
+        "state": cache,
+        "user": cache.user,
+        "answers": cache.answers,
+        "profile": cache.profile,
+        **cache.context,
         **kwargs,
     }
 
@@ -170,12 +164,12 @@ async def render_template(
     return await template.render_async(context)
 
 
-async def render_question(state: Cache, repo: Repository) -> dict:
+async def render_question(cache: Cache, repo: Repository) -> dict:
     photos: list[str] = []
     text = await render_template(
-        state,
+        cache,
         repo,
-        state.question.name,
+        cache.question.name,
         load_photo=lambda content_id: photos.append(content_id),
     )
     photos = [
