@@ -58,7 +58,13 @@ class Content(BaseModel):
 
     @property
     def value(self) -> Any | None:
-        return getattr(self, self.type.value)
+        fallback = None
+        if self.type in (ContentType.PHOTO, ContentType.FILE):
+            fallback = self.metadata.get("file_id")
+        value = getattr(self, self.type.value)
+        if value is None:
+            value = fallback
+        return value
 
     def __repr__(self) -> str:
         return f"('{self.type.value}', {self.value!r})"

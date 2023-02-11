@@ -1,9 +1,9 @@
 import asyncio
 from typing import Any
+from uuid import UUID
 
 from jinja2 import DictLoader, Environment
-from telegram import Document, InlineKeyboardButton, Message, PhotoSize, Chat
-from telegram.constants import ParseMode
+from telegram import Chat, Document, InlineKeyboardButton, Message, PhotoSize
 from telegram.ext import Application
 
 from app.exceptions import ValidationError
@@ -20,7 +20,6 @@ __all__ = [
     "clean_input",
     "save_answer",
     "render_template",
-    "render_question",
     "get_chat",
     "get_user_profile",
 ]
@@ -31,7 +30,8 @@ logger = get_logger(__file__)
 async def get_answer(
     cache: Cache, question_label: str, *, key: str | None = None
 ) -> Any:
-    if cache.question and cache.question.label == question_label:
+    question = cache.question
+    if question and question.label == question_label:
         contents = [
             opt.content for opt in cache.selected_options.values()
         ] + cache.created_options
@@ -39,16 +39,17 @@ async def get_answer(
             "value": [content.value for content in contents],
             "option": set(cache.selected_options.keys()),
             "label": set(option.label for option in cache.selected_options.values()),
-            "is_multivalued": cache.question.allow_multiple_choices,
         }
+        is_multivalued = question.allow_multiple_choices
+        if question.user_trait:
+            is_multivalued |= question.user_trait.is_multivalued
+        if not is_multivalued:
+            answer = {k: next(iter(v), None) for k, v in answer.items()}
     else:
         answer = cache.answers[question_label]
 
     if key is not None:
-        data = answer[key]
-        if not answer["is_multivalued"]:
-            data = data.pop() if data else None
-        return data
+        return answer[key]
     return answer
 
 
@@ -115,10 +116,7 @@ async def save_answer(cache: Cache, repo: Repository):
     data = await get_answer(cache, cache.question.label)
     cache.answers[cache.question.label] = data
     if trait := cache.question.user_trait:
-        value = data["value"]
-        if not data["is_multivalued"]:
-            value = next(iter(value), None)
-        setattr(cache.profile, trait.column, value)
+        setattr(cache.profile, trait.column, data["value"])
         selected_options = [
             opt.id for opt in cache.selected_options.values() if not opt.is_dynamic
         ]
@@ -146,8 +144,8 @@ async def get_user_profile(cache: Cache, repo: Repository, user: User):
 
 
 async def render_template(
-    cache: Cache, repo: Repository, template_: str, **kwargs
-) -> str:
+    cache: Cache, repo: Repository, template_: str, is_extended: bool = False, **kwargs
+) -> str | dict:
     loader = DictLoader({"__template__": template_})
     environment = Environment(
         loader=loader, extensions=["jinja2.ext.do"], enable_async=True
@@ -160,6 +158,21 @@ async def render_template(
         **cache.context,
         **kwargs,
     }
+
+    photos: list[str] = []
+
+    async def render_photo(photo: str):
+        if not photo:
+            return ""
+        try:
+            content_id = UUID(photo)
+        except ValueError:
+            photos.append(photo)
+        else:
+            content = await repo.contents.get(content_id)
+            if content and (value := content.value):
+                photos.append(value)
+        return ""
 
     async def render_profile(user: User, profile) -> str:
         role = await repo.roles.get(user.role)
@@ -177,35 +190,17 @@ async def render_template(
         raise RuntimeError(f"Cannot render a '{type(obj).__name__}'")
 
     environment.filters["render"] = render
+    environment.filters["render_photo"] = render_photo
     template = environment.get_template("__template__")
-    return await template.render_async(context)
-
-
-async def render_question(cache: Cache, repo: Repository) -> dict:
-    photos: list[str] = []
-    text = await render_template(
-        cache,
-        repo,
-        cache.question.name,
-        load_photo=lambda content_id: photos.append(content_id),
-    )
-    photos = [
-        photo.value
-        for content_id in photos
-        if (photo := await repo.contents.get(content_id))
-    ]
-    if photos:
-        # TODO: support multiple photos
-        return {
-            "photo": photos[0],
-            "caption": text,
-            "parse_mode": ParseMode.HTML,
-        }
+    text = await template.render_async(context)
+    if is_extended:
+        if photos:
+            # TODO: support multiple photos
+            return {"photo": photos[0], "caption": text}
+        else:
+            return {"text": text}
     else:
-        return {
-            "text": text,
-            "parse_mode": ParseMode.HTML,
-        }
+        return text
 
 
 async def get_chat(app: Application, target: User | int) -> Chat:

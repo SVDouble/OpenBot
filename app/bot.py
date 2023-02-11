@@ -1,5 +1,7 @@
 import contextlib
+import datetime
 import html
+import io
 import json
 from functools import wraps
 from typing import Callable, Coroutine
@@ -58,10 +60,14 @@ async def dump_cache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     else:
         data = cache.dict(exclude_none=True).get(arg, None)
     data = json.dumps(data, default=pydantic_encoder, ensure_ascii=False, indent=4)
-    await update.message.reply_text(
-        f"<code>{html.escape(data)}</code>",
-        parse_mode=ParseMode.HTML,
-    )
+    if len(data) > 4000:
+        filename = f"{arg}_{str(cache.user.id)[:8]}_{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')}.json"
+        await update.message.reply_document(io.StringIO(data), filename=filename)
+    else:
+        await update.message.reply_text(
+            f"<code>{html.escape(data)}</code>",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 commands = {

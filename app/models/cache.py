@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -38,9 +37,6 @@ class InterpreterCache(BaseModel):
 
 
 class Cache(BaseModel):
-    class Config:
-        keep_untouched = (cached_property,)
-
     id: UUID = Field(default_factory=uuid4)
     user: User
 
@@ -62,6 +58,7 @@ class Cache(BaseModel):
 
     interpreter: Any = Field(default_factory=None, exclude=True)
     session: Any = Field(default_factory=None, exclude=True)
+    context: dict = Field(default_factory=dict, exclude=True)
 
     @property
     def total_choices(self) -> int:
@@ -70,10 +67,6 @@ class Cache(BaseModel):
     @property
     def profile(self) -> Any:
         return self.interpreter and self.interpreter.context.get("profile")
-
-    @cached_property
-    def context(self) -> dict:
-        return {}
 
     def modify_state(self, state: State = None) -> State:
         self.interpreter_cache = self.interpreter.state_cache
@@ -89,6 +82,6 @@ class Cache(BaseModel):
         data = state["__dict__"].copy()
         del data["interpreter"]
         del data["session"]
-        data.pop("context", None)
+        data["context"] = {}
         state["__dict__"] = data
         return state

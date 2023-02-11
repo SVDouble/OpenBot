@@ -61,7 +61,6 @@ class UserEvaluator(BaseEvaluator):
             "get_next_suggestion": get_next_suggestion,
             "make_inline_button": partial(logic.make_inline_button, cache, repo),
             "render_template": partial(logic.render_template, cache, repo),
-            "render_question": partial(logic.render_question, cache, repo),
             "get_question_manager": lambda: QuestionManager(cache, repo),
             "get_chat": partial(logic.get_chat, interpreter.app),
             "get_profile": partial(logic.get_user_profile, cache, repo),
