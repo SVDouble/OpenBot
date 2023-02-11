@@ -2,11 +2,13 @@ import asyncio
 from typing import Any
 
 from jinja2 import DictLoader, Environment
-from telegram import Document, InlineKeyboardButton, Message, PhotoSize
+from telegram import Document, InlineKeyboardButton, Message, PhotoSize, Chat
 from telegram.constants import ParseMode
+from telegram.ext import Application
 
 from app.exceptions import ValidationError
 from app.models import Answer, Cache, Callback, Content, ContentValidator, User
+from app.profile import get_profile
 from app.repository import Repository
 from app.utils import get_logger
 
@@ -19,6 +21,8 @@ __all__ = [
     "save_answer",
     "render_template",
     "render_question",
+    "get_chat",
+    "get_user_profile",
 ]
 
 logger = get_logger(__file__)
@@ -111,7 +115,10 @@ async def save_answer(cache: Cache, repo: Repository):
     data = await get_answer(cache, cache.question.label)
     cache.answers[cache.question.label] = data
     if trait := cache.question.user_trait:
-        setattr(cache.profile, trait.column, data)
+        value = data["value"]
+        if not data["is_multivalued"]:
+            value = next(iter(value), None)
+        setattr(cache.profile, trait.column, value)
         selected_options = [
             opt.id for opt in cache.selected_options.values() if not opt.is_dynamic
         ]
@@ -133,6 +140,11 @@ async def save_answer(cache: Cache, repo: Repository):
     return data
 
 
+async def get_user_profile(cache: Cache, repo: Repository, user: User):
+    role = await repo.roles.get(user.role)
+    return get_profile(cache.session, role.label, user.id)
+
+
 async def render_template(
     cache: Cache, repo: Repository, template_: str, **kwargs
 ) -> str:
@@ -141,7 +153,7 @@ async def render_template(
         loader=loader, extensions=["jinja2.ext.do"], enable_async=True
     )
     context = {
-        "state": cache,
+        "cache": cache,
         "user": cache.user,
         "answers": cache.answers,
         "profile": cache.profile,
@@ -149,14 +161,19 @@ async def render_template(
         **kwargs,
     }
 
-    async def render_profile(user: User) -> str:
+    async def render_profile(user: User, profile) -> str:
         role = await repo.roles.get(user.role)
         profile_template = environment.from_string(role.profile_template)
-        return await profile_template.render_async(context)
+        render_context = {"user": user, "profile": profile}
+        return await profile_template.render_async(render_context)
 
     async def render(obj: Any):
         if isinstance(obj, User):
-            return await render_profile(obj)
+            if obj.id == cache.user.id:
+                profile = cache.profile
+            else:
+                profile = await get_user_profile(cache, repo, obj)
+            return await render_profile(obj, profile)
         raise RuntimeError(f"Cannot render a '{type(obj).__name__}'")
 
     environment.filters["render"] = render
@@ -189,3 +206,9 @@ async def render_question(cache: Cache, repo: Repository) -> dict:
             "text": text,
             "parse_mode": ParseMode.HTML,
         }
+
+
+async def get_chat(app: Application, target: User | int) -> Chat:
+    if isinstance(target, User):
+        target = target.telegram_id
+    return await app.bot.get_chat(target)

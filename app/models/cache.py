@@ -55,10 +55,13 @@ class Cache(BaseModel):
 
     # matching-related
     suggestion: Suggestion | None = None
+    candidate: User | None = None
 
     # service
-    interpreter: Any = Field(default_factory=None, exclude=True)
     interpreter_cache: InterpreterCache | None = None
+
+    interpreter: Any = Field(default_factory=None, exclude=True)
+    session: Any = Field(default_factory=None, exclude=True)
 
     @property
     def total_choices(self) -> int:
@@ -85,5 +88,7 @@ class Cache(BaseModel):
         state = super().__getstate__()
         data = state["__dict__"].copy()
         del data["interpreter"]
+        del data["session"]
+        data.pop("context", None)
         state["__dict__"] = data
         return state

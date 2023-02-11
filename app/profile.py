@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.utils import get_settings
 
-__all__ = ["Session", "get_profile_class", "get_profile"]
+__all__ = ["Session", "get_profile"]
 
 settings = get_settings()
 

@@ -78,6 +78,7 @@ commands = {
 async def get_cache(telegram_id: int, app: Application):
     cache = await repo.caches.load_for_user(telegram_id, app)
     with Session.begin() as session:
+        cache.session = session
         profile = get_profile(session, cache.interpreter.role.label, cache.user.id)
         cache.interpreter.context.update(profile=profile)
         yield cache
@@ -92,6 +93,7 @@ async def get_cache(telegram_id: int, app: Application):
             await repo.users.remove(cache.user)
         else:
             await repo.users.patch(cache.user)
+        cache.session = None
 
 
 def modifies_state(f: Callable[[Update, ContextTypes.DEFAULT_TYPE, Cache], Coroutine]):

@@ -46,6 +46,7 @@ class UserEvaluator(BaseEvaluator):
         return {
             "bot": interpreter.app.bot,
             "cache": (cache := interpreter.cache),
+            "context": cache.context,
             "repo": repo,
             "user": cache.user,
             "question": cache.question,
@@ -62,6 +63,8 @@ class UserEvaluator(BaseEvaluator):
             "render_template": partial(logic.render_template, cache, repo),
             "render_question": partial(logic.render_question, cache, repo),
             "get_question_manager": lambda: QuestionManager(cache, repo),
+            "get_chat": partial(logic.get_chat, interpreter.app),
+            "get_profile": partial(logic.get_user_profile, cache, repo),
         }
 
 
