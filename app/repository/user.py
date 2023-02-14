@@ -47,7 +47,7 @@ class UserRepository(BaseRwModelRepository[User]):
                 "bot": str(link.bot),
                 "role": str(link.target_role),
                 "referral_link": str(link.id),
-                "first_name": chat.first_name,
-                "last_name": chat.last_name,
+                "first_name": chat.first_name or "",
+                "last_name": chat.last_name or "",
             }
         }
