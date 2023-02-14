@@ -332,7 +332,6 @@ class AsyncInterpreter:
         computed_steps = await self._compute_steps()
 
         if len(computed_steps) > 0:
-
             # Consume event if it triggered a transition
             if computed_steps[0].event is not None:
                 event = self._select_event(consume=True)
