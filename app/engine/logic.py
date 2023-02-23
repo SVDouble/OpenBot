@@ -190,6 +190,27 @@ async def render_template(
                 photos.append(value)
         return ""
 
+    async def to_answer(value: Any, label: str) -> dict:
+        question = await repo.questions.get(label=label)
+        values = set(value if isinstance(value, list) else [value])
+        selected_options = []
+        for option in question.options:
+            if (option_value := option.content.value) in values:
+                selected_options.append(option)
+                values.remove(option_value)
+        answer = {
+            "value": list(values),
+            "choice": set(option.id for option in selected_options),
+            "label": set(option.label for option in selected_options),
+            "name": set(option.name for option in selected_options),
+        }
+        is_multivalued = question.allow_multiple_choices
+        if question.user_trait:
+            is_multivalued |= question.user_trait.is_multivalued
+        if not is_multivalued:
+            answer = {k: next(iter(v), None) for k, v in answer.items()}
+        return answer
+
     async def render_profile(user: User, profile) -> str:
         role = await repo.roles.get(user.role)
         profile_template = environment.from_string(role.profile_template)
@@ -207,6 +228,7 @@ async def render_template(
 
     environment.filters["render"] = render
     environment.filters["render_photo"] = render_photo
+    environment.filters["to_answer"] = to_answer
     template = environment.get_template("__template__")
     text = await template.render_async(context)
     if is_extended:
