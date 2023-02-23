@@ -8,12 +8,13 @@ from typing import Callable, Coroutine
 
 from httpx import HTTPStatusError
 from pydantic.json import pydantic_encoder
+from sqlalchemy import Column, Table, text
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, ContextTypes
 
 from app.models import Cache
-from app.profile import Session, get_profile
+from app.profile import Session, content_type_to_column, get_profile, get_profile_class
 from app.utils import get_logger, get_repository, get_settings
 
 __all__ = [
@@ -70,10 +71,51 @@ async def dump_cache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         )
 
 
+async def sync_database(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sync database with the current roles configuration"""
+    roles = await repo.roles.get(many=True)
+    if not roles:
+        await update.message.reply_text("No roles found")
+        return
+
+    def add_column(table_name_, column_):
+        # column_name_ = column_.compile(dialect=session.bind.dialect)
+        column_type_ = column_.type.compile(session.bind.dialect)
+        # TODO: prevent possible sql injections? use alembic instead?
+        session.execute(
+            text(
+                'ALTER TABLE "%s" ADD COLUMN "%s" %s'
+                % (table_name_, column_.name, column_type_)
+            )
+        )
+
+    with Session.begin() as session:
+        for role in roles:
+            profile_class = get_profile_class(role.label)
+            stats = f"{role.name} ({session.query(profile_class).count()} objects): \n"
+            for trait in role.traits:
+                table: Table = profile_class.__table__
+                column_name = trait.column
+                is_new = False
+                if column_name not in table.columns.keys():
+                    is_new = True
+                    logger.info(
+                        f"Adding column {column_name!r} to the {table.name!r} table"
+                    )
+                    type_ = content_type_to_column[trait.type]
+                    column = Column(column_name, type_, nullable=True)
+                    table.append_column(column)
+                    add_column(table.name, column)
+                sign = "+" if is_new else "-"
+                stats += f"  {sign} {column_name} ({trait.type.value})\n"
+            await update.message.reply_text(stats)
+
+
 commands = {
     "reset": reset,
     "ping": ping,
     "dump": dump_cache,
+    "syncdb": sync_database,
 }
 
 

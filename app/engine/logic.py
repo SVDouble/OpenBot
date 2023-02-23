@@ -3,11 +3,20 @@ from typing import Any
 from uuid import UUID
 
 from jinja2 import DictLoader, Environment
+from sqlalchemy.dialects.postgresql import Range
 from telegram import Chat, Document, InlineKeyboardButton, Message, PhotoSize
 from telegram.ext import Application
 
 from app.exceptions import ValidationError
-from app.models import Answer, Cache, Callback, Content, ContentValidator, User
+from app.models import (
+    Answer,
+    Cache,
+    Callback,
+    Content,
+    ContentType,
+    ContentValidator,
+    User,
+)
 from app.profile import get_profile
 from app.repository import Repository
 from app.utils import get_logger
@@ -116,7 +125,13 @@ async def save_answer(cache: Cache, repo: Repository):
     data = await get_answer(cache, cache.question.label)
     cache.answers[cache.question.label] = data
     if trait := cache.question.user_trait:
-        setattr(cache.profile, trait.column, data["value"])
+        if trait.type is ContentType.DATE_RANGE:
+            value = Range(**data["value"])
+        elif trait.type is ContentType.NUMBER_RANGE:
+            value = Range(**data["value"])
+        else:
+            value = data["value"]
+        setattr(cache.profile, trait.column, value)
         selected_options = [
             opt.id for opt in cache.selected_options.values() if not opt.is_dynamic
         ]

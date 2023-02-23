@@ -1,17 +1,53 @@
 from functools import lru_cache
 
-from sqlalchemy import UUID, Column, DateTime, MetaData, Table, create_engine, func
+from sqlalchemy import (
+    UUID,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    create_engine,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, NUMRANGE, TSTZRANGE
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 
+from app.models import ContentType
 from app.utils import get_settings
 
-__all__ = ["Session", "get_profile"]
+__all__ = ["Session", "get_profile", "get_profile_class", "content_type_to_column"]
 
 settings = get_settings()
 
 engine = create_engine(settings.postgres_url)
 Session = sessionmaker(engine)
+
+content_type_to_column = {
+    ContentType.TEXT: Text,
+    ContentType.INTEGER: Integer,
+    ContentType.FLOAT: Float,
+    ContentType.NUMBER_RANGE: NUMRANGE,
+    ContentType.DATE: DateTime,
+    ContentType.DATE_RANGE: TSTZRANGE,
+    ContentType.LOCATION: JSONB,
+    ContentType.TAG: UUID,
+    ContentType.CITY: UUID,
+    ContentType.UNIVERSITY: UUID,
+    ContentType.PHOTO: Text,
+    ContentType.FILE: Text,
+}
+
+
+def add_column(table_name, column):
+    column_name = column.compile(dialect=engine.dialect)
+    column_type = column.type.compile(engine.dialect)
+    engine.execute(
+        "ALTER TABLE %s ADD COLUMN %s %s" % (table_name, column_name, column_type)
+    )
 
 
 @lru_cache()

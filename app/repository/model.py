@@ -40,8 +40,6 @@ class BaseModelRepository(Generic[ModelClass]):
         if id_ is None:
             raise RuntimeError("Cannot make a key without an id")
         if isinstance(id_, list):
-            if not kwargs:
-                raise RuntimeError("Cannot generate a key for the list")
             id_ = self._make_ref(kwargs)
             return f"{self.key}:list[{id_}]"
         id_ = self._extract_id(id_)
@@ -94,7 +92,7 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
         return data
 
     async def _get_retrieve_kwargs(
-        self, id_: ID | None, *, context: dict = None, **kwargs
+        self, id_: ID | None, *, context: dict = None, many: bool = False, **kwargs
     ) -> dict | None:
         return None
 
@@ -106,13 +104,13 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
         many: bool = False,
         **kwargs,
     ) -> ModelClass | list[ModelClass] | None:
-        request_kwargs = (
-            await self._get_retrieve_kwargs(id_, context=context, **kwargs) or {}
+        request_kwargs = await self._get_retrieve_kwargs(
+            id_, context=context, many=many, **kwargs
         )
         if id_ is None and not request_kwargs:
             return None
         response = await self.core.httpx.get(
-            self._make_url(id_, **kwargs), **request_kwargs
+            self._make_url(id_, **kwargs), **(request_kwargs or {})
         )
         if response.is_success and (data := response.json()) is not None:
             if not data:
