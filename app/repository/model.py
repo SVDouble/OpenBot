@@ -176,7 +176,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         raise RuntimeError(f"Could not get or create {self.model.__name__}")
 
     async def _get_patch_kwargs(self, obj: ModelClass) -> dict | None:
-        new_data = obj.dict()
+        new_data = self.model.parse_raw(obj.json(exclude_none=True)).dict()
         old_data = (old_obj := await self.load(obj)) and old_obj.dict() or {}
         if keys := {k for k, v in new_data.items() if v != old_data.get(k)}:
             return {

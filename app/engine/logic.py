@@ -46,8 +46,9 @@ async def get_answer(
         ] + cache.created_options
         answer = {
             "value": [content.value for content in contents],
-            "option": set(cache.selected_options.keys()),
+            "choice": set(cache.selected_options.keys()),
             "label": set(option.label for option in cache.selected_options.values()),
+            "name": set(option.name for option in cache.selected_options.values()),
         }
         is_multivalued = question.allow_multiple_choices
         if question.user_trait:
