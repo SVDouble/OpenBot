@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.ext import Application
 
 from app.engine.core import BaseEvaluator, BaseInterpreter
-from app.models import Cache, Question, Role, Statechart, Suggestion
+from app.models import Cache, Question, Role, Statechart
 from app.repository import Repository
 from app.utils import get_logger
 
@@ -37,9 +37,6 @@ class UserEvaluator(BaseEvaluator):
         async def get_question(label: str) -> Question:
             return await repo.questions.get(label=label)
 
-        async def get_next_suggestion() -> Suggestion | None:
-            return await repo.suggestions.pop(user_id=cache.user.id)
-
         async def get_answer(question_label: str, *, key: str | None = "value"):
             return await logic.get_answer(cache, question_label, key=key)
 
@@ -58,7 +55,6 @@ class UserEvaluator(BaseEvaluator):
             "save_answer": partial(logic.save_answer, cache, repo),
             "get_question": get_question,
             "get_answer": get_answer,
-            "get_next_suggestion": get_next_suggestion,
             "make_inline_button": partial(logic.make_inline_button, cache, repo),
             "render_template": partial(logic.render_template, cache, repo),
             "get_question_manager": lambda: QuestionManager(cache, repo),
