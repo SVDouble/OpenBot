@@ -126,12 +126,11 @@ async def save_answer(cache: Cache, repo: Repository):
     data = await get_answer(cache, cache.question.label)
     cache.answers[cache.question.label] = data
     if trait := cache.question.user_trait:
-        if trait.type is ContentType.DATE_RANGE:
-            value = Range(**data["value"])
-        elif trait.type is ContentType.NUMBER_RANGE:
-            value = Range(**data["value"])
-        else:
-            value = data["value"]
+        if (value := data["value"]) is not None:
+            if trait.type is ContentType.DATE_RANGE:
+                value = Range(**value)
+            elif trait.type is ContentType.NUMBER_RANGE:
+                value = Range(**value)
         setattr(cache.profile, trait.column, value)
         selected_options = [
             opt.id for opt in cache.selected_options.values() if not opt.is_dynamic
