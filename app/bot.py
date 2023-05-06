@@ -61,7 +61,7 @@ def modifies_state(f: Callable[[Update, ContextTypes.DEFAULT_TYPE, Cache], Corou
     @wraps(f)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         async with get_cache(update.effective_user.id, context.application) as cache:
-            cache.interpreter.context.update(update=update, context=context)
+            cache.interpreter.context.update(tg_update=update, tg_context=context)
             await f(update, context, cache)
 
     return wrapper

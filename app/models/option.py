@@ -43,13 +43,28 @@ class Option(BaseModel):
             return "✅"
         return self.emoji
 
-    async def generate_content(self, state, repo) -> Content:
+    async def generate_content(self, cache, repo) -> Content | None:
         from app.engine.logic import render_template
+        from app.models import ContentValidator, ContentType
 
-        if self.content.type != "text":
-            raise RuntimeError(
-                "Only dynamic options with text are supported at the moment"
-            )
+        match self.content.type:
+            case ContentType.TEXT:
+                text = await render_template(cache, repo, self.content.text)
+                return Content(owner=cache.user.id, type=self.content.type, text=text)
+            case ContentType.PHOTO:
+                # use metadata to fetch image from the source
+                if (metadata := self.content.metadata) and (
+                    source := metadata.get("source")
+                ):
+                    if isinstance(source, dict) and source.get("type") == "profile":
+                        tg_context = cache.interpreter.context["tg_context"]
+                        if profile_photo := await cache.user.get_profile_photo(
+                            tg_context
+                        ):
+                            validator = ContentValidator(
+                                type=self.content.type, value=profile_photo[-1]
+                            )
+                            return await validator.get_content()
+                        raise ValueError("Profile picture not found")
 
-        text = await render_template(state, repo, self.content.text)
-        return Content(owner=state.user.id, type=self.content.type, text=text)
+        raise RuntimeError("Only dynamic options with text are supported at the moment")

@@ -2,9 +2,12 @@ import datetime
 from enum import IntEnum
 from uuid import UUID
 
+import telegram
 from pydantic import BaseModel
 
 __all__ = ["VerificationStatus", "User"]
+
+from telegram.ext import ContextTypes
 
 
 class VerificationStatus(IntEnum):
@@ -36,3 +39,12 @@ class User(BaseModel):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
+
+    async def get_profile_photo(
+        self, context: ContextTypes.DEFAULT_TYPE
+    ) -> tuple[telegram.PhotoSize, ...] | None:
+        profile_photos = await context.bot.get_user_profile_photos(
+            self.telegram_id, limit=1
+        )
+        if photos := profile_photos.photos:
+            return photos[0]

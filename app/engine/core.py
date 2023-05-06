@@ -35,7 +35,7 @@ class BaseEvaluator(AsyncPythonEvaluator):
             self._context[name] = value
 
         additional_context = (additional_context or {}) | {
-            "set": set_variable,
+            "set_variable": set_variable,
             "run": lambda future: asyncio.create_task(future),
             "logger": get_logger(type(self).__name__),
             **self._get_imports(),
