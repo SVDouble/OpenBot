@@ -11,15 +11,9 @@ from telegram.ext import (
     filters,
 )
 
-from app.bot import (
-    commands,
-    get_cache,
-    handle_callback_query,
-    handle_command,
-    handle_document,
-    handle_message,
-    handle_photo,
-)
+import app.integrations.telegram.commands as commands
+import app.integrations.telegram.handlers as handlers
+from app.integrations.utils import get_cache
 from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
@@ -97,12 +91,16 @@ def main():
     app.add_error_handler(handle_error)
     app.add_handlers(
         [
-            *[CommandHandler(name, callback) for name, callback in commands.items()],
-            MessageHandler(filters.COMMAND, handle_command),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message),
-            MessageHandler(filters.PHOTO, handle_photo),
-            MessageHandler(filters.Document.ALL, handle_document),
-            CallbackQueryHandler(handle_callback_query),
+            CommandHandler("reset", commands.reset),
+            CommandHandler("ping", commands.ping),
+            CommandHandler("dump", commands.dump_cache),
+            CommandHandler("syncdb", commands.sync_database),
+            CommandHandler("render", commands.render_template_command),
+            MessageHandler(filters.COMMAND, handlers.handle_command),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.handle_message),
+            MessageHandler(filters.PHOTO, handlers.handle_photo),
+            MessageHandler(filters.Document.ALL, handlers.handle_document),
+            CallbackQueryHandler(handlers.handle_callback_query),
         ]
     )
     app.job_queue.run_repeating(

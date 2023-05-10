@@ -1,73 +1,33 @@
-import contextlib
 import datetime
 import html
 import io
 import json
-from functools import wraps
-from typing import Callable, Coroutine
 
 import jinja2
 import telegram
-from httpx import HTTPStatusError
 from pydantic.json import pydantic_encoder
 from sqlalchemy import Column, Table, text
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import Application, ContextTypes
+from telegram.ext import ContextTypes
 
 from app.engine.logic import render_template
+from app.integrations.telegram.utils import modifies_state
 from app.models import Cache
-from app.profile import Session, content_type_to_column, get_profile, get_profile_class
+from app.profile import Session, content_type_to_column, get_profile_class
 from app.utils import get_logger, get_repository, get_settings
 
 __all__ = [
-    "handle_message",
-    "handle_command",
-    "handle_callback_query",
-    "handle_document",
-    "handle_photo",
-    "commands",
-    "get_cache",
+    "reset",
+    "ping",
+    "dump_cache",
+    "sync_database",
+    "render_template_command",
 ]
 
 logger = get_logger(__file__)
 settings = get_settings()
 repo = get_repository()
-
-
-@contextlib.asynccontextmanager
-async def get_cache(telegram_id: int, app: Application):
-    cache = await repo.caches.load_for_user(telegram_id, app)
-    with Session.begin() as session:
-        cache.session = session
-        profile = get_profile(session, cache.interpreter.role.label, cache.user.id)
-        cache.interpreter.context.update(profile=profile)
-        yield cache
-        await repo.caches.save(cache)
-        state = cache.modify_state(await repo.states.get(cache.id))
-        try:
-            await repo.states.patch(state)
-        except HTTPStatusError:
-            await app.bot.send_message(
-                telegram_id, "We've reset your account, so you can start anew"
-            )
-            await repo.users.remove(cache.user)
-        else:
-            await repo.users.patch(cache.user)
-        cache.session = None
-
-
-def modifies_state(f: Callable[[Update, ContextTypes.DEFAULT_TYPE, Cache], Coroutine]):
-    @wraps(f)
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        async with get_cache(update.effective_user.id, context.application) as cache:
-            cache.interpreter.context.update(tg_update=update, tg_context=context)
-            await f(update, context, cache)
-
-    return wrapper
-
-
-# commands
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -174,76 +134,3 @@ async def render_template_command(
             await update.message.reply_text(
                 f"Error while rendering template: {e.message}"
             )
-
-
-commands = {
-    "reset": reset,
-    "ping": ping,
-    "dump": dump_cache,
-    "syncdb": sync_database,
-    "render": render_template_command,
-}
-
-
-# handlers
-
-
-@modifies_state
-async def handle_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    cache: Cache,
-) -> None:
-    cache.interpreter.context["message"] = update.effective_message
-    await cache.interpreter.dispatch_event("received message")
-
-
-@modifies_state
-async def handle_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    cache: Cache,
-) -> None:
-    message = update.effective_message
-    command = message.text[1 : message.entities[0].length]
-    args = context.args
-    cache.interpreter.context.update(message=message, command=command, args=args)
-    await cache.interpreter.dispatch_event("received command")
-
-
-@modifies_state
-async def handle_callback_query(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    cache: Cache,
-) -> None:
-    query = update.callback_query
-    if callback := await repo.callbacks.load(query.data):
-        if callback.auto_answer:
-            await query.answer()
-        cache.interpreter.context.update(query=query, callback=callback)
-        await cache.interpreter.dispatch_event("received callback query")
-    else:
-        await query.answer(text="This callback has expired")
-
-
-@modifies_state
-async def handle_photo(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    cache: Cache,
-) -> None:
-    cache.interpreter.context["message"] = update.effective_message
-    cache.interpreter.context["photo"] = update.effective_message.photo
-    await cache.interpreter.dispatch_event("received photo")
-
-
-@modifies_state
-async def handle_document(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    cache: Cache,
-) -> None:
-    cache.interpreter.context["message"] = update.effective_message
-    cache.interpreter.context["document"] = update.effective_message.document
-    await cache.interpreter.dispatch_event("received document")
