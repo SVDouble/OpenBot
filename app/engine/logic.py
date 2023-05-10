@@ -192,11 +192,9 @@ async def render_template(
     async def to_answer(value: Any, label: str) -> dict:
         question = await repo.questions.get(label=label)
         values = set(value if isinstance(value, list) else [value])
-        selected_options = []
-        for option in question.options:
-            if (option_value := option.content.value) in values:
-                selected_options.append(option)
-                values.remove(option_value)
+        selected_options = [
+            opt for opt in question.options if opt.content.value in values
+        ]
         answer = {
             "value": list(values),
             "choice": set(option.id for option in selected_options),
