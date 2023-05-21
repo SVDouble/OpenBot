@@ -34,6 +34,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cache = await repo.caches.load_for_user(
         update.effective_user.id, context.application
     )
+    await repo.states.delete(cache.user.state)
+    await repo.users.remove(cache.user)
     await repo.caches.remove(cache)
     await update.message.reply_text("done")
 
