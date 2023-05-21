@@ -17,9 +17,12 @@ class CacheRepository(BaseModelRepository[Cache]):
         )
         role = await self.core.roles.get(user.role)
         statechart = await self.core.statecharts.get(role.statechart)
+
+        # load the state
+        state = None
         if user.state:
             state = await self.core.states.get(user.state)
-        else:
+        if state is None:
             state = await self.core.states.create(
                 None, user=user, statechart=statechart
             )
@@ -32,6 +35,10 @@ class CacheRepository(BaseModelRepository[Cache]):
             data.setdefault("id", state.id)
             data.setdefault("user", user)
             cache = Cache(**data)
+
+        # cache might be outdated, so we have to update user unconditionally
+        # it could've been changed through, for instance, patch mutations
+        cache.user = user
 
         interpreter = UserInterpreter(
             cache=cache, app=app, statechart=statechart, role=role, repo=self.core
