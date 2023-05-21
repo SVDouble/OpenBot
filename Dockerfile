@@ -73,4 +73,4 @@ ENV PYTHONPATH=$APP_HOME
 # Change to a non-root user
 USER app:app
 
-CMD ["python", "-m", "app.integrations.telegram"]
+ENTRYPOINT ["python", "-m", "app.integrations.telegram"]
