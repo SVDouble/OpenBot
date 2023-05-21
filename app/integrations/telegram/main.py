@@ -1,7 +1,10 @@
 import asyncio
+import datetime
 from functools import partial
 from uuid import UUID
 
+import telegram
+from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -66,6 +69,21 @@ async def update_bot_config(context: ContextTypes.DEFAULT_TYPE):
             trigger.set()
 
 
+async def disable_inactive_users(context: ContextTypes.DEFAULT_TYPE):
+    for user in await repo.users.get(is_active=True, many=True):
+        try:
+            await context.bot.send_chat_action(
+                chat_id=user.telegram_id, action=ChatAction.TYPING
+            )
+        except telegram.error.TelegramError as e:
+            if isinstance(e, telegram.error.Forbidden):
+                user.is_matchable = False
+                await repo.users.patch(user)
+                logger.debug(
+                    f"Deactivated user {user.telegram_id} (typing test: '{e}')"
+                )
+
+
 async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
@@ -112,5 +130,12 @@ def main():
         interval=settings.cache_ex_bot,
         data={"trigger": update_trigger},
     )
+    if settings.check_user_inactivity:
+        app.job_queue.run_repeating(
+            disable_inactive_users,
+            # first=settings.check_user_inactivity_time,
+            first=datetime.datetime.now() + datetime.timedelta(seconds=10),
+            interval=datetime.timedelta(days=1),
+        )
     logger.info("Polling has started UwU")
     app.run_polling()
