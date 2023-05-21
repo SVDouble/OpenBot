@@ -15,19 +15,13 @@ class UserRepository(BaseRwModelRepository[User]):
     key = "user"
     ex = settings.cache_ex_user
     url = "/users"
-    use_deep_retrieval = True
 
     async def _get_retrieve_kwargs(
-        self, id_: ID | None, *, context: dict = None, **kwargs
+        self, id_: ID | None, *, context: dict = None, many: bool = False, **kwargs
     ) -> dict | None:
         if id_ is None:
-            return {
-                "params": {
-                    "is_active": True,
-                    "telegram_id": kwargs["telegram_id"],
-                    "bot": str(settings.bot_id),
-                }
-            }
+            params = {"is_active": True, "bot": str(settings.bot_id), **kwargs}
+            return {"params": params}
 
     async def _get_create_kwargs(
         self, id_: ID | None, *, context: dict = None, **kwargs

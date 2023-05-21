@@ -75,7 +75,6 @@ class BaseModelRepository(Generic[ModelClass]):
 
 class BaseRoModelRepository(BaseModelRepository[ModelClass]):
     url: str
-    use_deep_retrieval: bool = False
 
     def _make_url(self, id_: ID | None, **kwargs):
         if id_ is None:
@@ -116,14 +115,8 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
             if not data:
                 return None
             data = self._extract(data, id_, many=many, **kwargs)
-            if self.use_deep_retrieval and id_ is None and not many:
-                new_id = data[self.id_field]
-                if new_id is None:
-                    raise RuntimeError("Retrieved object does not contain an id")
-                return await self._retrieve(data[self.id_field], **kwargs)
-            if isinstance(data, list):
-                return parse_obj_as(list[self.model], data)
-            return self.model.parse_obj(data)
+            parse_as_type = list[self.model] if isinstance(data, list) else self.model
+            return parse_obj_as(parse_as_type, data)
 
     async def get(
         self,
@@ -135,9 +128,8 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
     ) -> ModelClass | list[ModelClass] | None:
         if (obj := await self.load(id_, **kwargs)) is not None:
             return obj
-        if (
-            obj := await self._retrieve(id_, context=context, many=many, **kwargs)
-        ) is not None:
+        obj = await self._retrieve(id_, context=context, many=many, **kwargs)
+        if obj is not None:
             await self.save(obj, id_, **kwargs)
             return obj
 
@@ -205,4 +197,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         requests_kwargs = await self._get_delete_kwargs(id_, context=context, **kwargs)
         requests_kwargs = requests_kwargs or {}
         response = await self.core.httpx.delete(f"{self.url}/{id_}/", **requests_kwargs)
-        response.raise_for_status()
+        # ignore if the object has already been deleted
+        if response.status_code != 404:
+            response.raise_for_status()
+        await self.remove(id_)
