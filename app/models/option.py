@@ -45,7 +45,7 @@ class Option(BaseModel):
 
     async def generate_content(self, cache, repo) -> Content | None:
         from app.engine.logic import render_template
-        from app.models import ContentValidator, ContentType
+        from app.models import ContentType, ContentValidator
 
         match self.content.type:
             case ContentType.TEXT:
@@ -57,10 +57,11 @@ class Option(BaseModel):
                     source := metadata.get("source")
                 ):
                     if isinstance(source, dict) and source.get("type") == "profile":
-                        tg_context = cache.interpreter.context["tg_context"]
-                        if profile_photo := await cache.user.get_profile_photo(
-                            tg_context
-                        ):
+                        tg_context = cache.interpreter.context.get("tg_context")
+                        if tg_context is None:
+                            raise ValueError("Telegram context not found")
+                        profile_photo = await cache.user.get_profile_photo(tg_context)
+                        if profile_photo:
                             validator = ContentValidator(
                                 type=self.content.type, value=profile_photo[-1]
                             )

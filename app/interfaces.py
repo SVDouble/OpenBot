@@ -1,11 +1,18 @@
 from typing import Protocol
 
-__all__ = ["Chat", "Bot", "Application"]
+__all__ = ["Chat", "Bot", "Application", "Message"]
 
 
 class Chat(Protocol):
     first_name: str
     last_name: str
+
+
+class Message(Protocol):
+    text: str | None
+
+    async def reply_text(self, *args, **kwargs):
+        ...
 
 
 class Bot(Protocol):

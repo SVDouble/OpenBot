@@ -8,12 +8,10 @@
 #     stdin_open: true
 #
 # And then run docker compose up && docker attach easybot_engine
-
-
-from typing import NamedTuple
+from typing import Any
 
 from app.integrations.utils import get_cache
-from app.interfaces import Application, Bot, Chat
+from app.interfaces import Application, Bot, Chat, Message
 from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
@@ -32,7 +30,7 @@ class TerminalBot(Bot):
     def __init__(self):
         self._mq = []
 
-    async def get_chat(self, chat_id: int) -> Chat:
+    async def get_chat(self, chat_id: int) -> TerminalChat:
         return TerminalChat(chat_id, "John", "Doe")
 
     async def send_message(self, *args, **kwargs):
@@ -44,28 +42,48 @@ class TerminalBot(Bot):
     def flush_message_queue(self):
         self._mq.clear()
 
-    def get_messages(self):
+    def read_messages(self):
         yield from self._mq
         self.flush_message_queue()
 
     def display_all_messages(self):
+        try:
+            from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+
+            telegram_enabled = True
+        except ImportError:
+            telegram_enabled = False
+
+        def render_reply_markup(reply_markup: Any) -> Any:
+            if telegram_enabled:
+                if isinstance(reply_markup, ReplyKeyboardMarkup):
+                    reply_markup = [
+                        [button.text for button in row] for row in reply_markup.keyboard
+                    ]
+                    return str(reply_markup)
+                elif isinstance(reply_markup, ReplyKeyboardRemove):
+                    reply_markup = None
+            return reply_markup
+
         def display_text(telegram_id, text, reply_markup=None, *args, **kwargs):
-            msg = f"Got a message: {text}"
+            msg = f"[MESSAGE]: {text}"
+            reply_markup = render_reply_markup(reply_markup)
             if reply_markup:
-                msg += f"\n Options: {reply_markup}"
+                msg += f"\n[OPTIONS]: {reply_markup}"
             logger.info(msg)
 
         def display_photo(
             telegram_id, photo, caption=None, reply_markup=None, *args, **kwargs
         ):
-            msg = f"Got a photo: {photo}"
+            msg = f"[PHOTO]: {photo}"
+            reply_markup = render_reply_markup(reply_markup)
             if caption:
-                msg += f"\n Caption: {caption}"
+                msg += f"\n[CAPTION]: {caption}"
             if reply_markup:
-                msg += f"\n Options: {reply_markup}"
+                msg += f"\n[OPTIONS]: {reply_markup}"
             logger.info(msg)
 
-        for message in self.get_messages():
+        for message in self.read_messages():
             match message[0]:
                 case "message":
                     display_text(*message[1], **message[2])
@@ -73,6 +91,16 @@ class TerminalBot(Bot):
                     display_photo(*message[1], **message[2])
                 case _:
                     raise ValueError(f"Unknown message type: {message[0]}")
+
+
+class TerminalMessage(Message):
+    def __init__(self, text: str | None, *, bot: TerminalBot, chat: TerminalChat):
+        self._bot = bot
+        self._chat = chat
+        self.text = text
+
+    async def reply_text(self, *args, **kwargs):
+        await self._bot.send_message(self._chat.id, *args, **kwargs)
 
 
 class TerminalApplication(Application):
@@ -101,22 +129,25 @@ async def main():
     logger.info(settings)
     logger.info("Terminal Bot has started UwU")
     application = TerminalApplication()
-    # TODO: replace with an interface (include methods like reply_text, reply_photo, etc.)
-    Message = NamedTuple("Message", text=str)
     while True:
         try:
-            update = {"chat": await application.bot.get_chat(0)}
-            message = input("Enter a message: ")
+            chat = await application.bot.get_chat(0)
+            update = {"chat": chat}
+            message = input("[INPUT]: ")
             if message == "/exit":
                 break
             if message.startswith("/"):
                 command, *args = message[1:].split()
                 update["type"] = "command"
-                update["command"] = Message(command)
+                update["command"] = TerminalMessage(
+                    text=command, bot=application.bot, chat=chat
+                )
                 update["args"] = args
             else:
                 update["type"] = "message"
-                update["message"] = Message(message)
+                update["message"] = TerminalMessage(
+                    text=message, bot=application.bot, chat=chat
+                )
             await handle_update(update, application)
         except Exception as e:
             logger.error(e)
