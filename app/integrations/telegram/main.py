@@ -52,6 +52,7 @@ async def run_bot_logic(app: Application, *, update_trigger: asyncio.Event):
 
 async def post_init(app: Application, *, update_trigger: asyncio.Event):
     asyncio.create_task(run_bot_logic(app, update_trigger=update_trigger))
+    update_trigger.set()
 
 
 async def run_user_logic(context: ContextTypes.DEFAULT_TYPE):
@@ -133,8 +134,7 @@ def main():
     if settings.check_user_inactivity:
         app.job_queue.run_repeating(
             disable_inactive_users,
-            # first=settings.check_user_inactivity_time,
-            first=datetime.datetime.now() + datetime.timedelta(seconds=10),
+            first=settings.check_user_inactivity_time,
             interval=datetime.timedelta(days=1),
         )
     logger.info("Polling has started UwU")

@@ -48,20 +48,18 @@ class TerminalBot(Bot):
 
     def display_all_messages(self):
         try:
-            from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-
-            telegram_enabled = True
+            import telegram
         except ImportError:
-            telegram_enabled = False
+            telegram = None
 
         def render_reply_markup(reply_markup: Any) -> Any:
-            if telegram_enabled:
-                if isinstance(reply_markup, ReplyKeyboardMarkup):
+            if telegram is not None:
+                if isinstance(reply_markup, telegram.ReplyKeyboardMarkup):
                     reply_markup = [
                         [button.text for button in row] for row in reply_markup.keyboard
                     ]
                     return str(reply_markup)
-                elif isinstance(reply_markup, ReplyKeyboardRemove):
+                elif isinstance(reply_markup, telegram.ReplyKeyboardRemove):
                     reply_markup = None
             return reply_markup
 

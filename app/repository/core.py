@@ -2,7 +2,7 @@ import pickle
 from typing import Any
 
 import httpx
-import redis.asyncio as redis
+import redis.asyncio
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from httpx import AsyncClient, Response
 
@@ -14,8 +14,8 @@ settings = get_settings()
 logger = get_logger(__file__)
 
 
-def init_redis_client(decode_responses=True) -> redis.Redis:
-    return redis.from_url(
+def init_redis_client(decode_responses=True) -> redis.asyncio.Redis:
+    return redis.asyncio.from_url(
         settings.redis_url,
         encoding="utf-8",
         db=settings.redis_db,
@@ -45,6 +45,7 @@ class Repository:
         self.answers = repos.AnswerRepository(self)
         self.suggestions = repos.SuggestionRepository(self)
         self.feedbacks = repos.FeedbackRepository(self)
+        self.matches = repos.MatchRepository(self)
 
     def _get_httpx_client(self) -> AsyncClient:
         token = httpx.post(
@@ -78,12 +79,15 @@ class Repository:
             return pickle.loads(data)
 
     async def set_pickle(self, key: str, value: Any, *, ex: int | None, **kwargs):
+        # noinspection PyUnresolvedReferences
         await self.raw_db.set(key, pickle.dumps(value), ex=ex, **kwargs)
 
     async def remove_pickle(self, key: str):
+        # noinspection PyUnresolvedReferences
         await self.raw_db.delete(key)
 
     async def mark_user_as_active(self, telegram_id: int):
+        # noinspection PyUnresolvedReferences
         await self.db.sadd("users", telegram_id)
 
     async def get_active_user_ids(self) -> set[int]:

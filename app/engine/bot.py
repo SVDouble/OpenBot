@@ -1,31 +1,26 @@
 import asyncio
 import datetime
-from typing import Any, Mapping
+from typing import Any
 
 import sismic.model
+from sismic.exceptions import CodeEvaluationError
 from telegram.ext import Application
 
 from app.engine.core import BaseEvaluator, BaseInterpreter
 from app.models import Statechart
-from app.utils import get_logger, get_settings
+from app.utils import get_logger, get_repository, get_settings
 
 __all__ = ["BotEvaluator", "BotInterpreter"]
 
 logger = get_logger(__file__)
 settings = get_settings()
+repo = get_repository()
 
 
 class BotEvaluator(BaseEvaluator):
     async def _get_shared_context(self) -> dict[str, Any]:
         interpreter: BotInterpreter = self._interpreter
-        return {"bot": interpreter.app.bot}
-
-    async def _execute_code(
-        self, code: str | None, *, additional_context: Mapping[str, Any] = None
-    ) -> list[sismic.model.Event]:
-        interpreter: BotInterpreter = self._interpreter
-        additional_context = (additional_context or {}) | {"bot": interpreter.app.bot}
-        return await super()._execute_code(code, additional_context=additional_context)
+        return {"bot": interpreter.app.bot, "repo": repo}
 
 
 class BotInterpreter(BaseInterpreter):
@@ -40,7 +35,10 @@ class BotInterpreter(BaseInterpreter):
         while self._is_active:
             now = datetime.datetime.now()
             if now - self._last_activity_time > self._clock_interval:
-                await self.dispatch_event("clock")
+                try:
+                    await self.dispatch_event("tick")
+                except CodeEvaluationError as e:
+                    logger.error(f"error while running the engine: {e}")
             await asyncio.sleep(self._clock_interval.seconds)
 
     async def dispatch_event(self, event: str) -> list[sismic.model.MacroStep]:
@@ -49,10 +47,11 @@ class BotInterpreter(BaseInterpreter):
         return steps
 
     async def run(self):
-        logger.info("starting the engine")
+        logger.info(f"starting the engine '{self.statechart.name}'")
         self._is_active = True
+        await self.dispatch_event("start")
         await self._run_clock()
 
     async def stop(self):
-        logger.info(f"stopping the engine'")
+        logger.info(f"stopping the engine '{self.statechart.name}'")
         self._is_active = False

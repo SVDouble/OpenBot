@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, parse_obj_as
 
 from app.repository.core import Repository
-from app.utils import get_logger
+from app.utils import get_logger, get_settings
 
 __all__ = [
     "BaseModelRepository",
@@ -14,6 +14,7 @@ __all__ = [
 ]
 
 logger = get_logger(__file__)
+settings = get_settings()
 
 ModelClass = TypeVar("ModelClass", bound=BaseModel)
 ID = int | str | UUID | ModelClass
@@ -93,7 +94,10 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
     async def _get_retrieve_kwargs(
         self, id_: ID | None, *, context: dict = None, many: bool = False, **kwargs
     ) -> dict | None:
-        return None
+        params = kwargs
+        if id_ is None:
+            params["bot"] = settings.bot_id
+        return {"params": params}
 
     async def _retrieve(
         self,
@@ -130,8 +134,12 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
             return obj
         obj = await self._retrieve(id_, context=context, many=many, **kwargs)
         if obj is not None:
-            await self.save(obj, id_, **kwargs)
+            if not many:
+                await self.save(obj, id_, **kwargs)
             return obj
+        if many:
+            return []
+        return None
 
 
 class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):

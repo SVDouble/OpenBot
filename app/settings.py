@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     cache_ex_suggestions = 60
     cache_ex_answers = 60 * 60
     cache_ex_feedbacks = 60 * 60
+    cache_ex_match = 60 * 60
 
     check_user_inactivity = True
     check_user_inactivity_time = datetime.time(hour=4)
