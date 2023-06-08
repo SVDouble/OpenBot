@@ -1,12 +1,13 @@
 import asyncio
 import json
+import signal
 from typing import Literal, Any
 
 import pydantic
 from pydantic import PrivateAttr
 
 from app.integrations.utils import get_cache
-from app.interfaces import Application, Bot, Chat, Message
+from app.interfaces import Application, Bot, Chat
 from app.utils import get_logger, get_repository, get_settings
 
 logger = get_logger(__file__)
@@ -21,10 +22,12 @@ class RedisMessage(pydantic.BaseModel):
     data: str
 
 
-class MqMessage(Message, pydantic.BaseModel):
+class MqMessage(pydantic.BaseModel):
     chat_id: int
     from_: Literal["user", "bot"] = pydantic.Field(alias="from")
-    type: Literal["message", "command", "photo"]
+    type_: Literal["message", "command", "photo"] = pydantic.Field(
+        alias="type", default="message"
+    )
 
     text: str | None
     caption: str | None
@@ -38,8 +41,8 @@ class MqMessage(Message, pydantic.BaseModel):
         super().__init__(**data)
         self._bot = bot
         self._chat = chat
-        if self.type == "message" and self.text and self.text.startswith("/"):
-            self.type = "command"
+        if self.type_ == "message" and self.text and self.text.startswith("/"):
+            self.type_ = "command"
 
     async def reply_text(self, *args, **kwargs):
         await self._bot.send_message(self._chat.id, *args, **kwargs)
@@ -67,77 +70,96 @@ class MqBot(Bot):
     async def send_message(self, chat_id, text, reply_markup=None, **kwargs):
         assert isinstance(chat_id, int), "chat_id must be an integer"
         message = MqMessage(
-            chat_id=chat_id,
-            from_="bot",
-            type="message",
-            text=text,
-            reply_markup=reply_markup.to_dict() if reply_markup else None,
-            bot=self,
-            chat=await self.get_chat(chat_id),
+            **{
+                "chat_id": chat_id,
+                "from": "bot",
+                "type": "message",
+                "text": text,
+                "reply_markup": reply_markup.to_dict() if reply_markup else None,
+                "bot": self,
+                "chat": await self.get_chat(chat_id),
+            }
         )
         if kwargs:
             logger.debug(f"got unsupported kwargs: {kwargs}")
-        await repo.db.publish(f"chat:{chat_id}", json.dumps(message))
+        await self._publish_message(chat_id, message)
 
     async def send_photo(
         self, chat_id, photo, caption=None, reply_markup=None, **kwargs
     ):
         assert isinstance(chat_id, int), "chat_id must be an integer"
         message = MqMessage(
-            chat_id=chat_id,
-            from_="bot",
-            type="photo",
-            caption=caption,
-            reply_markup=reply_markup.to_dict() if reply_markup else None,
-            bot=self,
-            chat=await self.get_chat(chat_id),
+            **{
+                "chat_id": chat_id,
+                "from": "bot",
+                "type": "photo",
+                "caption": caption,
+                "reply_markup": reply_markup.to_dict() if reply_markup else None,
+                "bot": self,
+                "chat": await self.get_chat(chat_id),
+            }
         )
         if kwargs:
             logger.debug(f"got unsupported kwargs: {kwargs}")
-        await repo.db.publish(f"chat:{chat_id}", json.dumps(message))
+        await self._publish_message(chat_id, message)
+
+    async def _publish_message(self, chat_id: int, message: MqMessage):
+        await repo.db.publish(
+            f"chat:{chat_id}",
+            message.json(exclude_none=True, by_alias=True, ensure_ascii=False),
+        )
 
     async def _handle_message(self, raw_message: dict):
         redis_message = RedisMessage(**raw_message)
         chat_id = int(redis_message.channel.removeprefix("chat:"))
         chat = await self.get_chat(chat_id)
-        message = json.loads(redis_message.data)
-        message = MqMessage(**message, bot=self, chat=chat)
-
+        try:
+            message = json.loads(redis_message.data)
+        except json.JSONDecodeError:
+            logger.error(
+                f"[Chat {chat_id}] Failed to decode message: {redis_message.data}"
+            )
+            return
+        if not isinstance(message, dict):
+            if isinstance(message, str):
+                message = {"text": message}
+            else:
+                logger.error(
+                    f"[Chat {chat_id}] Message is not a dict: {redis_message.data}"
+                )
+                return
+        try:
+            # noinspection PyTypeChecker
+            message.setdefault("chat_id", chat_id)
+            message.setdefault("from", "user")
+            message = MqMessage(**message, bot=self, chat=chat)
+        except pydantic.ValidationError as e:
+            logger.error(f"[Chat {chat_id}] Failed to validate message: {e}")
+            return
+        if message.from_ == "bot":
+            return
         async with get_cache(chat_id, self._app) as cache:
             cache.interpreter.context["message"] = message
-            match message.type:
+            match message.type_:
                 case "message":
                     await cache.interpreter.dispatch_event("received message")
                 case "command":
-                    command, *args = message[1:].split()
+                    command, *args = message.text[1:].split()
                     cache.interpreter.context["command"] = command
                     cache.interpreter.context["args"] = args
                     await cache.interpreter.dispatch_event("received command")
                 case _:
-                    raise ValueError(f"Unknown message type: {message.type}")
+                    raise ValueError(f"Unknown message type: {message.type_}")
 
-    async def _update_active_chats(self, raw_message: dict):
-        message = RedisMessage(**raw_message)
-        if message.data.startswith("add:"):
-            chat_id = int(message.data.removeprefix("add:"))
-            await self._add_chat(await self.get_chat(chat_id))
-        elif message.data.startswith("remove:"):
-            chat_id = int(message.data.removeprefix("remove:"))
-            await self._remove_chat(await self.get_chat(chat_id))
-        elif message.data == "stop":
-            self._is_active = False
-
-    async def _add_chat(self, chat: MqChat):
-        self._chats[chat.id] = chat
-        await self._pubsub.subscribe(f"chat:{chat.id}", self._handle_message)
-
-    async def _remove_chat(self, chat: MqChat):
-        del self._chats[chat.id]
-        await self._pubsub.unsubscribe(f"chat:{chat.id}")
+    def _stop(self, *_):
+        self._is_active = False
 
     async def run(self):
-        await self._pubsub.subscribe("chat", self._update_active_chats)
         self._is_active = True
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGINT, self._stop)
+        loop.add_signal_handler(signal.SIGTERM, self._stop)
+        await self._pubsub.psubscribe(**{"chat:*": self._handle_message})
         while self._is_active:
             await asyncio.sleep(0)
             await self._pubsub.get_message(ignore_subscribe_messages=True, timeout=1)
