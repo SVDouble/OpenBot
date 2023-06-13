@@ -6,6 +6,7 @@ from typing import Literal, Any
 import pydantic
 from pydantic import PrivateAttr
 
+from app.integrations.mq.schemas import RedisMessage
 from app.integrations.utils import get_cache
 from app.interfaces import Application, Bot, Chat
 from app.utils import get_logger, get_repository, get_settings
@@ -13,13 +14,6 @@ from app.utils import get_logger, get_repository, get_settings
 logger = get_logger(__file__)
 settings = get_settings()
 repo = get_repository()
-
-
-class RedisMessage(pydantic.BaseModel):
-    type: str
-    pattern: str | None
-    channel: str
-    data: str
 
 
 class MqMessage(pydantic.BaseModel):
@@ -109,6 +103,20 @@ class MqBot(Bot):
             message.json(exclude_none=True, by_alias=True, ensure_ascii=False),
         )
 
+    async def _dispatch_message(self, message: MqMessage):
+        async with get_cache(message.chat_id, self._app) as cache:
+            cache.interpreter.context["message"] = message
+            match message.type_:
+                case "message":
+                    await cache.interpreter.dispatch_event("received message")
+                case "command":
+                    command, *args = message.text[1:].split()
+                    cache.interpreter.context["command"] = command
+                    cache.interpreter.context["args"] = args
+                    await cache.interpreter.dispatch_event("received command")
+                case _:
+                    raise ValueError(f"Unknown message type: {message.type_}")
+
     async def _handle_message(self, raw_message: dict):
         redis_message = RedisMessage(**raw_message)
         chat_id = int(redis_message.channel.removeprefix("chat:"))
@@ -138,18 +146,8 @@ class MqBot(Bot):
             return
         if message.from_ == "bot":
             return
-        async with get_cache(chat_id, self._app) as cache:
-            cache.interpreter.context["message"] = message
-            match message.type_:
-                case "message":
-                    await cache.interpreter.dispatch_event("received message")
-                case "command":
-                    command, *args = message.text[1:].split()
-                    cache.interpreter.context["command"] = command
-                    cache.interpreter.context["args"] = args
-                    await cache.interpreter.dispatch_event("received command")
-                case _:
-                    raise ValueError(f"Unknown message type: {message.type_}")
+
+        asyncio.create_task(self._dispatch_message(message))
 
     def _stop(self, *_):
         self._is_active = False
