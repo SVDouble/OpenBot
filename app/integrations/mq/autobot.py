@@ -23,7 +23,7 @@ class Client:
     async def receive_update(self, raw_message: dict):
         redis_message = RedisMessage(**raw_message)
         try:
-            message = MqMessage.parse_raw(redis_message.data)
+            message = MqMessage.model_validate_json(redis_message.data)
         except pydantic.ValidationError as e:
             logger.error(f"[Chat {self.chat_id}] Update Validation Error: {e}")
             return

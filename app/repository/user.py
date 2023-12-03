@@ -29,11 +29,15 @@ class UserRepository(BaseRwModelRepository[User]):
         if isinstance(id_, User):
             return await super()._get_create_kwargs(id_, context=context, **kwargs)
         telegram_id, app = kwargs["telegram_id"], context["app"]
-        account = await self.core.accounts.get_or_create(telegram_id=telegram_id)
+        chat: Chat = await app.bot.get_chat(telegram_id)
+        account = await self.core.accounts.get_or_create(
+            telegram_id=telegram_id,
+            first_name=chat.first_name or "",
+            last_name=chat.last_name or "",
+        )
         link = await self.core.referral_links.get()
         if link is None:
             raise PublicError("Registration is not available at the moment")
-        chat: Chat = await app.bot.get_chat(telegram_id)
         return {
             "json": {
                 "account": str(account.id),

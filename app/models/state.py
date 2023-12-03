@@ -2,7 +2,7 @@ import datetime
 from functools import cached_property
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.utils import get_logger, get_settings
 
@@ -13,8 +13,7 @@ settings = get_settings()
 
 
 class State(BaseModel):
-    class Config:
-        keep_untouched = (cached_property,)
+    model_config = ConfigDict(ignored_types=(cached_property,))
 
     id: UUID = Field(default_factory=uuid4)
     bot: UUID = settings.bot_id

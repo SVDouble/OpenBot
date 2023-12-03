@@ -16,4 +16,4 @@ class ReferralLink(BaseModel):
     user_limit: int | None
 
     target_role: UUID
-    target_answers: Any
+    target_answers: Any = None

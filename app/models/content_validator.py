@@ -3,7 +3,7 @@ from functools import cached_property, total_ordering
 from re import sub
 from typing import Any, Callable, Self, Sequence, Type
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, ConfigDict
 from telegram import Document, PhotoSize
 
 from app.exceptions import ValidationError
@@ -18,11 +18,10 @@ settings = get_settings()
 
 @total_ordering
 class ContentValidator(BaseModel):
-    class Config:
-        keep_untouched = (cached_property,)
+    model_config = ConfigDict(ignored_types=(cached_property,))
 
     type: CT
-    value: Any
+    value: Any = None
     options: Sequence[Any] | None = None
     _payload: Any | None = PrivateAttr(default=None)
 

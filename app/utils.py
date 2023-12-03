@@ -1,11 +1,10 @@
 import logging
 from functools import lru_cache
 
-from pydantic import BaseModel, validate_model
 from rich.console import Console
 from rich.logging import RichHandler
 
-__all__ = ["get_logger", "get_settings", "get_repository", "validate", "split"]
+__all__ = ["get_logger", "get_settings", "get_repository", "split"]
 
 console = Console(color_system="256", width=150, style="blue")
 
@@ -33,12 +32,6 @@ def get_logger(module_name):
     settings = get_settings()
     logger.setLevel(settings.log_level)
     return logger
-
-
-def validate(model: BaseModel):
-    *_, validation_error = validate_model(model.__class__, model.__dict__)
-    if validation_error:
-        raise validation_error
 
 
 def split(lst: list, n: int) -> list[list]:

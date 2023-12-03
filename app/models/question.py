@@ -31,6 +31,9 @@ class Question(BaseModel):
     text_skip: str = "Пропустить вопрос"
     text_error: str | None = None
 
+    display_mode: int = 0
+    preserve_reply_keyboard: bool = False
+
     options: list[Option] = Field(default_factory=list)
 
     def __str__(self):

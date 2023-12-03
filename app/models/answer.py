@@ -12,7 +12,7 @@ settings = get_settings()
 
 
 class Answer(BaseModel):
-    id: UUID | None
+    id: UUID | None = None
     bot: UUID = settings.bot_id
     owner: UUID
     question: UUID
@@ -21,4 +21,4 @@ class Answer(BaseModel):
     is_question_skipped: bool = False
     selected_options: list[UUID] = Field(default_factory=list)
     created_options: list[Content] = Field(default_factory=list)
-    date_created: datetime.datetime | None
+    date_created: datetime.datetime | None = None

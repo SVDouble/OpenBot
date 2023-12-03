@@ -1,26 +1,19 @@
 import datetime
-from functools import cached_property
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AnyUrl, BaseSettings
-from pydantic import PostgresDsn as BasePostgresDsn
+from pydantic import PostgresDsn, AnyUrl, ConfigDict
 from pydantic import SecretStr
+from pydantic_settings import BaseSettings
 
 from app.models.bot import Bot
 
 __all__ = ["Settings"]
 
 
-class PostgresDsn(BasePostgresDsn):
-    allowed_schemes = BasePostgresDsn.allowed_schemes | {"postgresql+psycopg"}
-
-
 class Settings(BaseSettings):
-    class Config:
-        keep_untouched = (cached_property,)
-        env_file = Path(__file__).parent.parent / ".env"
+    model_config = ConfigDict(extra="ignore")
 
     title: str = "EasyBot"
     version: str = "v0.1.0"
@@ -40,18 +33,18 @@ class Settings(BaseSettings):
     backend_api_username: SecretStr
     backend_api_password: SecretStr
 
-    cache_ex_bot = 60
-    cache_ex_account = 60 * 60
-    cache_ex_user = 60 * 60
-    cache_ex_statechart = 60
-    cache_ex_referral_link = 60 * 60
-    cache_ex_content = 60 * 60
-    cache_ex_role = 60 * 60
-    cache_ex_question = 60
-    cache_ex_suggestions = 60
-    cache_ex_answers = 60 * 60
-    cache_ex_feedbacks = 60 * 60
-    cache_ex_match = 60 * 60
+    cache_ex_bot: int = 60
+    cache_ex_account: int = 60 * 60
+    cache_ex_user: int = 60 * 60
+    cache_ex_statechart: int = 60
+    cache_ex_referral_link: int = 60 * 60
+    cache_ex_content: int = 60 * 60
+    cache_ex_role: int = 60 * 60
+    cache_ex_question: int = 60
+    cache_ex_suggestions: int = 60
+    cache_ex_answers: int = 60 * 60
+    cache_ex_feedbacks: int = 60 * 60
+    cache_ex_match: int = 60 * 60
 
-    check_user_inactivity = True
-    check_user_inactivity_time = datetime.time(hour=4)
+    check_user_inactivity: bool = True
+    check_user_inactivity_time: datetime.time = datetime.time(hour=4)

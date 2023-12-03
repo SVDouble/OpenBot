@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     Integer,
+    BOOLEAN,
     MetaData,
     Table,
     Text,
@@ -23,13 +24,14 @@ __all__ = ["Session", "get_profile", "get_profile_class", "content_type_to_colum
 
 settings = get_settings()
 
-engine = create_engine(settings.postgres_url)
+engine = create_engine(str(settings.postgres_url))
 Session = sessionmaker(engine)
 
 content_type_to_column = {
     ContentType.TEXT: Text,
     ContentType.INTEGER: Integer,
     ContentType.FLOAT: Float,
+    ContentType.BOOLEAN: BOOLEAN,
     ContentType.NUMBER_RANGE: NUMRANGE,
     ContentType.DATE: DateTime,
     ContentType.DATE_RANGE: TSTZRANGE,

@@ -214,7 +214,7 @@ async def render_template(
         render_context = {"user": user, "profile": profile}
         return await profile_template.render_async(render_context)
 
-    async def render(obj: Any):
+    async def render(obj: Any) -> str:
         if isinstance(obj, User):
             if obj.id == cache.user.id:
                 profile = cache.profile
