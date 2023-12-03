@@ -3,6 +3,9 @@ services:
     image: easybot
     container_name: 'easybot_engine'
     build: .
+    entrypoint: [ "python", "-m", "app.integrations.telegram" ]
+#    tty: true
+#    stdin_open: true
     environment:
       REDIS_URL: redis://easybot-redis:6379
       REDIS_DB: 0
