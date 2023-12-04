@@ -20,8 +20,9 @@ class UserRepository(BaseRwModelRepository[User]):
         self, id_: ID | None, *, context: dict = None, many: bool = False, **kwargs
     ) -> dict | None:
         if id_ is None:
-            params = {"is_active": True, "bot": str(settings.bot_id), **kwargs}
-            return {"params": params}
+            kwargs.setdefault("is_active", True)
+            kwargs.setdefault("bot", settings.bot_id)
+            return {"params": kwargs}
 
     async def _get_create_kwargs(
         self, id_: ID | None, *, context: dict = None, **kwargs

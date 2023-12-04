@@ -20,6 +20,7 @@ services:
       - traefik_proxy
     external_links:
       - traefik:console.localhost
+      - traefik:storage.localhost
     depends_on:
       easybot-redis:
         condition: service_healthy

@@ -19,7 +19,7 @@ settings = get_settings()
 class BaseEvaluator(AsyncPythonEvaluator):
     @classmethod
     def _get_imports(cls) -> dict:
-        return {}
+        return {"settings": settings}
 
     @property
     def context(self) -> dict:
@@ -60,7 +60,7 @@ class BaseInterpreter(AsyncInterpreter):
         evaluator_klass: Callable[..., BaseEvaluator] = BaseEvaluator,
     ):
         statechart = import_from_dict(
-            dict(statechart=statechart.code.dict(by_alias=True))
+            dict(statechart=statechart.code.model_dump(by_alias=True))
         )
         statechart.validate()
         self._evaluator_klass = evaluator_klass
