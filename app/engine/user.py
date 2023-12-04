@@ -35,7 +35,11 @@ class UserEvaluator(BaseEvaluator):
         repo: Repository = interpreter.repo
 
         async def get_question(label: str) -> Question:
-            return await repo.questions.get(label=label)
+            question = await repo.questions.get(label=label)
+            if question is None:
+                logger.error(f"Question with label='{label}' does not exist")
+                raise RuntimeError(f"Question {label} does not exist")
+            return question
 
         async def get_answer(question_label: str, *, key: str | None = "value"):
             return await logic.get_answer(cache, question_label, key=key)
