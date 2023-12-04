@@ -41,8 +41,12 @@ class UserEvaluator(BaseEvaluator):
                 raise RuntimeError(f"Question {label} does not exist")
             return question
 
-        async def get_answer(question_label: str, *, key: str | None = "value"):
-            return await logic.get_answer(cache, question_label, key=key)
+        async def get_answer(
+            question_label: str, *, key: str | None = "value", raise_error: bool = True
+        ) -> Any:
+            return await logic.get_answer(
+                cache, question_label, key=key, raise_error=raise_error
+            )
 
         return {
             "bot": interpreter.app.bot,
