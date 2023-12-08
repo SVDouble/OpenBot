@@ -1,7 +1,7 @@
 from typing import Any, Generic, Type, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, TypeAdapter
 
 from app.repository.core import Repository
 from app.utils import get_logger, get_settings
@@ -120,7 +120,7 @@ class BaseRoModelRepository(BaseModelRepository[ModelClass]):
                 return None
             data = self._extract(data, id_, many=many, **kwargs)
             parse_as_type = list[self.model] if isinstance(data, list) else self.model
-            return parse_obj_as(parse_as_type, data)
+            return TypeAdapter(parse_as_type).validate_python(data)
 
     async def get(
         self,
@@ -147,7 +147,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         self, id_: ID | None, *, context: dict = None, **kwargs
     ) -> dict | None:
         if isinstance(id_, self.model):
-            data = id_.json(exclude_none=True, by_alias=True)
+            data = id_.model_dump_json(exclude_none=True, by_alias=True)
             headers = {"Content-Type": "application/json"}
             return {"headers": headers, "content": data}
         return None
@@ -162,7 +162,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
             raise RuntimeError(f"Cannot create {self.model.__name__}: no content given")
         response = await self.core.httpx.post(f"{self.url}/", **request_kwargs)
         response.raise_for_status()
-        obj = self.model.parse_obj(response.json())
+        obj = self.model.model_validate(response.json())
         await self.save(obj, id_, **kwargs)
         return obj
 
@@ -176,12 +176,14 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         raise RuntimeError(f"Could not get or create {self.model.__name__}")
 
     async def _get_patch_kwargs(self, obj: ModelClass) -> dict | None:
-        new_data = self.model.parse_raw(obj.json(exclude_none=True)).dict()
-        old_data = (old_obj := await self.load(obj)) and old_obj.dict() or {}
+        new_data = self.model.model_validate_json(
+            obj.model_dump_json(exclude_none=True)
+        ).model_dump()
+        old_data = (old_obj := await self.load(obj)) and old_obj.model_dump() or {}
         if keys := {k for k, v in new_data.items() if v != old_data.get(k)}:
             return {
                 "headers": {"Content-Type": "application/json"},
-                "content": obj.json(include=keys),
+                "content": obj.model_dump_json(include=keys),
             }
 
     async def patch(self, obj: ModelClass) -> ModelClass:
@@ -190,7 +192,7 @@ class BaseRwModelRepository(BaseRoModelRepository[ModelClass]):
         path = f"{self.url}/{getattr(obj, self.id_field)}/"
         response = await self.core.httpx.patch(path, **request_kwargs)
         response.raise_for_status()
-        obj = self.model.parse_obj(response.json())
+        obj = self.model.model_validate(response.json())
         await self.save(obj)
         return obj
 

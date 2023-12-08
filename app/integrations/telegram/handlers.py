@@ -36,7 +36,7 @@ async def handle_command(
 ) -> None:
     message = update.effective_message
     command = message.text[1 : message.entities[0].length]
-    args = context.args
+    args = message.text[message.entities[0].length + 1 :].split()
     cache.interpreter.context.update(message=message, command=command, args=args)
     await cache.interpreter.dispatch_event("received command")
 

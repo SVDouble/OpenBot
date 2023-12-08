@@ -14,10 +14,10 @@ class AnswerRepository(BaseRwModelRepository[Answer]):
     url = "/answers"
 
     async def create(self, answer: Answer, **_) -> Answer:
-        data = answer.json(exclude_none=True)
+        data = answer.model_dump_json(exclude_none=True)
         headers = {"Content-Type": "application/json"}
         response = await self.core.httpx.post(
             f"/answers/", headers=headers, content=data
         )
         response.raise_for_status()
-        return Answer.parse_obj(response.json())
+        return Answer.model_validate(response.json())

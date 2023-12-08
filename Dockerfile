@@ -48,7 +48,7 @@ RUN set -ex \
     libpcre3 \
     mime-support \
     postgresql-client \
-    netcat \
+    netcat-traditional \
     " \
     && seq 1 8 | xargs -I{} mkdir -p /usr/share/man/man{} \
     && apt-get update && apt-get install -y --no-install-recommends $RUN_DEPS \

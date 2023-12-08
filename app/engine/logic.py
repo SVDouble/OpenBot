@@ -37,7 +37,11 @@ logger = get_logger(__file__)
 
 
 async def get_answer(
-    cache: Cache, question_label: str, *, key: str | None = None
+    cache: Cache,
+    question_label: str,
+    *,
+    key: str | None = None,
+    raise_error: bool = True,
 ) -> Any:
     question = cache.question
     if question and question.label == question_label:
@@ -56,7 +60,13 @@ async def get_answer(
         if not is_multivalued:
             answer = {k: next(iter(v), None) for k, v in answer.items()}
     else:
-        answer = cache.answers[question_label]
+        try:
+            answer = cache.answers[question_label]
+        except KeyError as e:
+            if raise_error:
+                raise e
+            else:
+                return None
 
     if key is not None:
         return answer[key]
@@ -214,7 +224,7 @@ async def render_template(
         render_context = {"user": user, "profile": profile}
         return await profile_template.render_async(render_context)
 
-    async def render(obj: Any):
+    async def render(obj: Any) -> str:
         if isinstance(obj, User):
             if obj.id == cache.user.id:
                 profile = cache.profile

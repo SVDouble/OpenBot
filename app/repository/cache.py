@@ -44,7 +44,9 @@ class CacheRepository(BaseModelRepository[Cache]):
             cache=cache, app=app, statechart=statechart, role=role, repo=self.core
         )
         if cache.interpreter_cache:
-            interpreter.__dict__.update(cache.interpreter_cache.dict(by_alias=True))
+            interpreter.__dict__.update(
+                cache.interpreter_cache.model_dump(by_alias=True)
+            )
         cache.interpreter = interpreter
 
         return cache

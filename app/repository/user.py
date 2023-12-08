@@ -20,8 +20,9 @@ class UserRepository(BaseRwModelRepository[User]):
         self, id_: ID | None, *, context: dict = None, many: bool = False, **kwargs
     ) -> dict | None:
         if id_ is None:
-            params = {"is_active": True, "bot": str(settings.bot_id), **kwargs}
-            return {"params": params}
+            kwargs.setdefault("is_active", True)
+            kwargs.setdefault("bot", settings.bot_id)
+            return {"params": kwargs}
 
     async def _get_create_kwargs(
         self, id_: ID | None, *, context: dict = None, **kwargs
@@ -29,11 +30,15 @@ class UserRepository(BaseRwModelRepository[User]):
         if isinstance(id_, User):
             return await super()._get_create_kwargs(id_, context=context, **kwargs)
         telegram_id, app = kwargs["telegram_id"], context["app"]
-        account = await self.core.accounts.get_or_create(telegram_id=telegram_id)
+        chat: Chat = await app.bot.get_chat(telegram_id)
+        account = await self.core.accounts.get_or_create(
+            telegram_id=telegram_id,
+            first_name=chat.first_name or "",
+            last_name=chat.last_name or "",
+        )
         link = await self.core.referral_links.get()
         if link is None:
             raise PublicError("Registration is not available at the moment")
-        chat: Chat = await app.bot.get_chat(telegram_id)
         return {
             "json": {
                 "account": str(account.id),

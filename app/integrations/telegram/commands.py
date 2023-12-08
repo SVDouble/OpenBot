@@ -48,7 +48,7 @@ async def dump_cache(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     try:
         arg = context.args.pop()
     except IndexError:
-        keys = {"state"} | set(Cache.__fields__.keys())
+        keys = {"state"} | set(Cache.model_fields.keys())
         await update.message.reply_text(
             f"Please specify an attribute to show; possible values: {keys}",
         )

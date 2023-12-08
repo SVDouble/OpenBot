@@ -13,9 +13,12 @@ class AccountRepository(BaseRwModelRepository[Account]):
     ex = settings.cache_ex_account
     url = "/accounts"
 
-    async def _get_retrieve_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
-        if id_ is None:
-            return {"params": {"telegram_id": kwargs["telegram_id"]}}
-
-    async def _get_create_kwargs(self, id_: ID | None, **kwargs) -> dict | None:
-        return {"json": {"telegram_id": kwargs["telegram_id"]}}
+    async def _get_create_kwargs(
+        self, id_: ID | None, *, context: dict = None, **kwargs
+    ) -> dict | None:
+        data = {"telegram_id": kwargs["telegram_id"]}
+        if "first_name" in kwargs:
+            data["first_name"] = kwargs["first_name"]
+        if "last_name" in kwargs:
+            data["last_name"] = kwargs["last_name"]
+        return {"json": data}

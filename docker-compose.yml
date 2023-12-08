@@ -1,10 +1,13 @@
 services:
-  engine:
+  easybot-engine:
     image: easybot
-    container_name: 'easybot_core'
+    container_name: 'easybot_engine'
     build: .
+    entrypoint: [ "python", "-m", "app.integrations.telegram" ]
+#    tty: true
+#    stdin_open: true
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://easybot-redis:6379
       REDIS_DB: 0
       REDIS_PASSWORD: easybot-pro-redis
     env_file:
@@ -17,18 +20,21 @@ services:
       - traefik_proxy
     external_links:
       - traefik:console.localhost
+      - traefik:storage.localhost
     depends_on:
-      redis:
+      easybot-redis:
         condition: service_healthy
     restart: unless-stopped
 
-  redis:
-    image: docker.io/redis:7.0
+  easybot-redis:
+    image: docker.io/redis/redis-stack:latest
     container_name: 'easybot_redis'
     environment:
       REDIS_PASSWORD: easybot-pro-redis
+      RITRUSTEDORIGINS: "https://redis.${SERVER_NAME}"
     networks:
       - easybot
+      - traefik_proxy
     volumes:
       - easybot_redis_data:/data
     healthcheck:
@@ -36,16 +42,6 @@ services:
       interval: 1s
       timeout: 5s
       retries: 10
-    restart: unless-stopped
-
-  redis-gui:
-    image: docker.io/redislabs/redisinsight:latest
-    container_name: 'easybot_redis_gui'
-    networks:
-      - easybot
-      - traefik_proxy
-    environment:
-      RITRUSTEDORIGINS: "https://redis.${SERVER_NAME}"
     labels:
       - "traefik.enable=true"
       - 'traefik.docker.network=traefik_proxy'
@@ -55,6 +51,7 @@ services:
       - 'traefik.http.routers.redis-gui.middlewares=no-auth-secured@file'
       - "traefik.http.services.redis-gui.loadbalancer.server.port=8001"
 
+    restart: unless-stopped
 
 volumes:
   easybot_redis_data:

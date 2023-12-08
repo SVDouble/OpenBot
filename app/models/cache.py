@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.content import Content
 from app.models.content_validator import ContentValidator
@@ -19,8 +19,7 @@ settings = get_settings()
 
 
 class InterpreterCache(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     ignore_contract: bool = Field(alias="_ignore_contract")
     # shows whether the statechart was executed at least once
@@ -56,8 +55,8 @@ class Cache(BaseModel):
     # service
     interpreter_cache: InterpreterCache | None = None
 
-    interpreter: Any = Field(default_factory=None, exclude=True)
-    session: Any = Field(default_factory=None, exclude=True)
+    interpreter: Any = Field(None, exclude=True)
+    session: Any = Field(None, exclude=True)
     context: dict = Field(default_factory=dict, exclude=True)
 
     @property
@@ -70,7 +69,7 @@ class Cache(BaseModel):
 
     def modify_state(self, state: State = None) -> State:
         self.interpreter_cache = self.interpreter.state_cache
-        state.data = self.dict(exclude_none=True)
+        state.data = self.model_dump(exclude_none=True)
         state.active_question = self.question and self.question.id
         state.active_states = self.interpreter_cache.configuration
         return state

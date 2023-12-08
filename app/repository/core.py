@@ -16,7 +16,7 @@ logger = get_logger(__file__)
 
 def init_redis_client(decode_responses=True) -> redis.asyncio.Redis:
     return redis.asyncio.from_url(
-        settings.redis_url,
+        str(settings.redis_url),
         encoding="utf-8",
         db=settings.redis_db,
         decode_responses=decode_responses,
@@ -61,7 +61,7 @@ class Repository:
             token=token,
             # non-auth params
             http2=True,
-            base_url=settings.backend_api_url,
+            base_url=str(settings.backend_api_url),
             verify=settings.backend_api_verify,
             event_hooks={"response": [self._log_response]},
         )
