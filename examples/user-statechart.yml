@@ -1,0 +1,475 @@
+name: UserLogic
+root state:
+  name: root
+  parallel states:
+    - name: home
+      initial: registration
+      states:
+        - name: registration
+          initial: standby
+          states:
+            - name: standby
+              transitions:
+                - target: name question
+                  event: received command
+                  guard: command == "start"
+
+            # personal data
+
+            - name: name question
+              on entry: |
+                cache.question = await get_question("name")
+                send("ask question")
+              transitions:
+                - target: sex question
+                  event: received answer
+
+            - name: sex question
+              on entry: |
+                cache.question = await get_question("sex")
+                send("ask question")
+              transitions:
+                - target: age question
+                  event: received answer
+
+            - name: age question
+              on entry: |
+                cache.question = await get_question("age")
+                cache.validate_answer = True
+                send("ask question")
+              transitions:
+                - event: validate answer
+                  action: |
+                    if 18 <= await get_answer("age"):
+                        send("accept answer")
+                    else:
+                        await message.reply_text("You must be at least 18 years old to continue using the bot")
+                        send("reject answer")
+                - target: city question
+                  event: received answer
+
+            - name: city question
+              on entry: |
+                cache.question = await get_question("city")
+                send("ask question")
+              transitions:
+                - target: city wish question
+                  event: received answer
+                  guard: event.label == "other"
+                  priority: high
+                - target: bio question
+                  event: received answer
+
+            # if user's city is not supported, return him to the city question
+            # after asking him which city he'd want
+
+            - name: city wish question
+              on entry: |
+                cache.question = await get_question("city-wish")
+                send("ask question")
+              transitions:
+                - target: city wish received message
+                  event: received answer
+
+            - name: city wish received message
+              on entry: |
+                cache.question = await get_question("msg-city-wish-received")
+                send("ask question")
+              transitions:
+                - target: city question
+                  event: received answer
+
+            # continue with the questions
+
+            - name: bio question
+              on entry: |
+                cache.question = await get_question("bio")
+                send("ask question")
+              transitions:
+                - target: photo question
+                  event: received answer
+
+            - name: photo question
+              on entry: |
+                cache.question = await get_question("photo")
+                send("ask question")
+              transitions:
+                - target: signup success message
+                  event: received answer
+
+            - name: signup success message
+              on entry: |
+                cache.question = await get_question("msg-signup-success")
+                send("ask question")
+              transitions:
+                - target: menu
+                  event: received answer
+                  action: |
+                    user.is_matchable = True
+                    user.is_registered = True
+
+        # menu, candidates, profile and support sections
+
+        - name: menu
+          on entry: |
+            cache.question = await get_question("menu")
+            send("ask question")
+          transitions:
+            - event: received answer
+              guard: event.value == "candidates" and user.is_matchable
+              target: candidates
+            - event: received answer
+              guard: event.value == "candidates" and not user.is_matchable
+              target: menu
+              action: |
+                await bot.send_message(user.telegram_id, "Activate your profile to see candidates")
+            - event: received answer
+              guard: event.value == "support"
+              action: await bot.send_message(user.telegram_id, "@support")
+              target: menu
+            - event: received answer
+              guard: event.value == "settings"
+              target: settings
+            - event: received answer
+              guard: event.value == "filters"
+              target: filters
+            - event: received answer
+              guard: event.value == "faq"
+              target: menu
+              action: |
+                await bot.send_message(
+                    user.telegram_id, 
+                    "<b>FAQ:</b> ..."
+                    parse_mode=ParseMode.HTML
+                )
+
+        - name: candidates
+          initial: show candidate
+          states:
+            - name: show candidate
+              on entry: |
+                cache.suggestion = await repo.suggestions.pop(user_id=cache.user.id)
+                if cache.suggestion:
+                    cache.candidate = context["candidate"] = await repo.users.get(cache.suggestion.candidate)
+                    cache.question = await get_question("candidate")
+                    send("ask question")
+                else:
+                    await message.reply_text("There are no more profiles. Try again later, <b>or change the filters</b>", parse_mode=ParseMode.HTML)
+                    send("received answer", value="__menu__", label="__menu__")
+              transitions:
+                - event: received answer
+                  guard: event.value == "__menu__"
+                  target: menu
+                - event: received answer
+                  guard: event.value == "next"
+                  action: |
+                    feedback = Feedback(from_user=user.id, to_user=cache.candidate.id, response=3)
+                    await repo.feedbacks.create(feedback)
+                  target: show candidate
+                - event: received answer
+                  guard: event.value == "contact"
+                  action: |
+                    feedback = Feedback(from_user=user.id, to_user=cache.candidate.id, response=4)
+                    await repo.feedbacks.create(feedback)
+                  target: show contact
+            - name: show contact
+              on entry: |
+                context["candidate"] = cache.candidate
+                context["candidate_username"] = (await get_chat(cache.candidate)).username
+                context["candidate_profile"] = await get_profile(cache.candidate)
+                cache.question = await get_question("msg-contact")
+                send("ask question")
+              transitions:
+                - event: received answer
+                  target: show candidate
+
+        - name: settings
+          initial: show profile
+          states:
+            - name: show profile
+              on entry: |
+                cache.question = await get_question("profile")
+                send("ask question")
+              transitions:
+                - event: received answer
+                  target: select setting
+            - name: select setting
+              on entry: |
+                cache.question = await get_question("settings")
+                send("ask question")
+              transitions:
+                - event: received answer
+                  guard: event.value == "__menu__"
+                  target: menu
+                - event: received answer
+                  guard: event.label == "__toggle__"
+                  target: menu
+                  action: |
+                    if event.value == "reactivate":
+                        user.is_matchable = True
+                        message = "Your profile will be visible in the search"
+                    else:
+                        user.is_matchable = False
+                        message = "Your profile will be hidden from the search"
+                    await bot.send_message(user.telegram_id, message)
+                - event: received answer
+                  target: edit setting
+                  priority: low
+            - name: edit setting
+              on entry: |
+                cache.question = await get_question(await get_answer("settings"))
+                cache.validate_answer = cache.question.label == "age"
+                send("ask question")
+              transitions:
+                - event: validate answer
+                  action: |
+                    if 18 <= await get_answer("age"):
+                        send("accept answer")
+                    else:
+                        await message.reply_text("You must be at least 18 years old to continue using the bot")
+                        send("reject answer")
+                - event: received answer
+                  target: show profile
+
+        - name: filters
+          initial: show filters
+          states:
+            - name: show filters
+              on entry: |
+                cache.question = await get_question("msg-filters")
+                send("ask question")
+              transitions:
+                - event: received answer
+                  target: select filter
+            - name: select filter
+              on entry: |
+                cache.question = await get_question("filters")
+                send("ask question")
+              transitions:
+                - event: received answer
+                  guard: event.value == "__menu__"
+                  target: menu
+                - event: received answer
+                  target: edit filter
+                  priority: low
+            - name: edit filter
+              on entry: |
+                cache.question = await get_question(await get_answer("filters"))
+                cache.validate_answer = cache.question.label == "filter-age"
+                send("ask question")
+              transitions:
+                - event: validate answer
+                  action: |
+                    _answer = await get_answer("filter-age")
+                    if 18 <= _answer["lower"]:
+                        send("accept answer")
+                    else:
+                        await message.reply_text("The candidate must be at least 18 years old")
+                        send("reject answer")
+                - event: received answer
+                  target: show filters
+
+
+    # low-level service states
+
+    - name: question handler
+      initial: question handler idle
+      states:
+        - name: question handler idle
+          transitions:
+            - event: ask question
+              target: prepare question
+              guard: question is not None
+
+        - name: prepare question
+          on entry: |
+            options = cache.question.options
+            _bad_options = set()
+            for option in options:
+                option.name = await render_template(option.name)
+                if option.is_dynamic:
+                    try:
+                        option.content = await option.generate_content(cache, repo)
+                    except ValueError:
+                        _bad_options.add(option.id)
+            cache.question.options = [option for option in options if option.id not in _bad_options]
+            cache.question.text_skip = await render_template(cache.question.text_skip)
+
+          transitions:
+            - target: ask question
+
+        - name: ask question
+          on entry: |
+            manager = get_question_manager()
+            if options := manager.get_options():
+                expect(selected_option=ContentValidator(type="text", options=options))
+            if question.allow_arbitrary_input:
+                expect(created_option=question.content_type)
+            if question.allow_skipping:
+                expect(action_skip_question=ContentValidator(type="text", options=[question.text_skip]))
+            if manager.is_inline:
+                expect(action_save_answer=ContentValidator(type="text", options=[manager.action_save_answer]))
+            if cache.is_reply_keyboard_set and manager.is_inline:
+                await bot.send_message(
+                    user.telegram_id,
+                    "🧐 Processing your request...",
+                    reply_markup=ReplyKeyboardRemove(),
+                    parse_mode=ParseMode.HTML,
+                )
+            cache.is_reply_keyboard_set = not manager.is_inline
+            rendered_question = await render_template(cache.question.name, is_extended=True)
+            # if question contains a photo and text is too long for a caption, send the photo first
+            from telegram.error import BadRequest
+            if "photo" in rendered_question and len(rendered_question["caption"]) >= 1024:
+                try:
+                    await bot.send_photo(user.telegram_id, photo=rendered_question.pop("photo"))
+                except BadRequest:
+                    pass  # ignore incorrect photos for now
+                rendered_question["text"] = rendered_question.pop("caption")
+            send_question = bot.send_photo if "photo" in rendered_question else bot.send_message
+            try:
+                await send_question(
+                    user.telegram_id,
+                    reply_markup=await manager.get_markup(),
+                    parse_mode=ParseMode.HTML,
+                    **rendered_question
+                )
+            except BadRequest:
+                # try to send the question without a photo
+                if rendered_question.pop("photo", None):
+                    rendered_question["text"] = rendered_question.pop("caption")
+                    await bot.send_message(
+                        user.telegram_id,
+                        reply_markup=await manager.get_markup(),
+                        parse_mode=ParseMode.HTML,
+                        **rendered_question
+                    )
+                else:
+                    await bot.send_message(user.telegram_id, "❌ An error occurred while sending the message")
+                    raise
+          transitions:
+            - target: await input
+              guard: not question.is_rhetorical
+            - target: save answer
+              priority: low
+
+        - name: await input
+          transitions:
+            - event: received selected_option
+              action: |
+                manager = get_question_manager()
+                try:
+                    await manager.toggle_option(selected_option)
+                except KeyError:
+                    send("received illegal input")
+                if manager.is_inline:
+                    await query.edit_message_reply_markup(await manager.get_markup())
+              target: check answer completeness
+
+            - event: received created_option
+              action: cache.created_options.append(event.content)
+              target: check answer completeness
+
+            - event: received illegal input
+              action: |
+                if question.text_error:
+                    _text = question.text_error
+                elif question.allow_multiple_choices or not question.allow_arbitrary_input:
+                    _text = "Please select an option from the provided choices"
+                else:
+                    _text = "Please, answer the question"
+                await bot.send_message(user.telegram_id, _text)
+
+            - event: received action_save_answer
+              target: validate answer
+
+            - event: received action_skip_question
+              target: save answer
+              action: |
+                manager = get_question_manager()
+                if manager.is_inline:
+                    await query.edit_message_reply_markup(await manager.get_markup(is_final=True, is_skipped=True))
+
+        - name: check answer completeness
+          transitions:
+            - target: validate answer
+              guard: not question.allow_multiple_choices and cache.total_choices > 0
+            - target: await input
+              priority: low
+
+        - name: validate answer
+          on entry: |
+            if cache.validate_answer is True:
+                send("validate answer")
+          transitions:
+            - target: save answer
+              guard: cache.validate_answer is False
+            - target: save answer
+              event: accept answer
+              action: |
+                manager = get_question_manager()
+                if manager.is_inline:
+                    await query.edit_message_reply_markup(await manager.get_markup(is_final=True))
+
+            - target: await input
+              event: reject answer
+              action: |
+                cache.selected_options.clear()
+                cache.created_options.clear()
+                manager = get_question_manager()
+                if manager.is_inline:
+                    await query.edit_message_reply_markup(await manager.get_markup())
+
+        - name: save answer
+          on entry: |
+            answer = await save_answer()
+            cache.selected_options.clear()
+            cache.created_options.clear()
+            cache.question = None
+            cache.validate_answer = False
+            release("selected_option", "created_option", "action_skip_question", "action_save_answer")
+            send("received answer", value=answer["value"], label=answer["label"])
+          transitions:
+            - target: question handler idle
+
+    - name: parser
+      transitions:
+        - target: parser
+          event: received message
+          action: |
+            if _result := await clean_input(message=message):
+                _name, _content = _result
+                set_variable(_name, _content.value)
+                send(f"received {_name}", content=_content, source="message")
+            else:
+                send("received illegal input")
+
+        - target: parser
+          event: received callback query
+          action: |
+            if _result := await clean_input(callback=callback):
+                _name, _content = _result
+                set_variable(_name, _content.value)
+                send(f"received {_name}", content=_content, source="callback query")
+            else:
+                send("received illegal input")
+
+        - target: parser
+          event: received photo
+          action: |
+            if _result := await clean_input(photo=photo):
+                _name, _content = _result
+                set_variable(_name, _content.value)
+                send(f"received {_name}", content=_content, source="photo")
+            else:
+                send("received illegal input")
+
+        - target: parser
+          event: received document
+          action: |
+            if _result := await clean_input(document=document):
+                _name, _content = _result
+                set_variable(_name, _content.value)
+                send(f"received {_name}", content=_content, source="document")
+            else:
+                send("received illegal input")

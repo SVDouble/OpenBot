@@ -11,7 +11,7 @@ OpenBot is an open-source framework designed to simplify the development of bots
 - **Hierarchical and Parallel States**: Supports advanced state management features like hierarchical and parallel states, enabled by the Sismic library.
 - **Containerization**: Facilitates deployment using Docker, ensuring consistent environments across development and production.
 - **Poetry for Dependency Management**: Uses Poetry, streamlining library management and package installations.
-- **Multiple Bot Examples**: Includes a variety of example configurations in the `examples` folder to kickstart your bot development <i>(coming soon)</i>.
+- **Multiple Bot Examples**: Includes a variety of example configurations in the `examples` folder to kickstart your bot development <i>(more coming soon)</i>.
 
 ## Getting Started
 To begin using OpenBot, clone the repository and navigate to the respective directory. Install dependencies using Poetry and deploy bots using Docker Compose.

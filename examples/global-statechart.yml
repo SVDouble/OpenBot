@@ -1,0 +1,26 @@
+name: BotLogic
+root state:
+  name: root
+  parallel states:
+    - name: match delivery
+      initial: match delivery idle
+      states:
+        - name: match delivery idle
+          transitions:
+            - event: tick
+              target: match delivery active
+        - name: match delivery active
+          on entry: |
+            import datetime
+            
+            matches = await repo.matches.get(many=True, is_delivered=False)
+            print(f"Found {len(matches)} matches to deliver")
+            for match in matches:
+                users = [await repo.users.get(user_id) for user_id in match.users]
+                for user in users:
+                    await bot.send_message(user.telegram_id, text="You have a new match!")
+                match.date_delivered = datetime.datetime.now()
+                await repo.matches.patch(match)
+          transitions:
+            - guard: after(5)
+              target: match delivery idle
