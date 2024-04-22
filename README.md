@@ -20,11 +20,11 @@ To begin using OpenBot, clone the repository and navigate to the respective dire
 Contributions are welcome at OpenBot, whether they are for bug fixes, new features, or documentation improvements.
 
 ## License
-OpenBot is distributed under the MIT License, except for parts extending the Sismic library, which are bound by the LGPL-3.0 License.
+OpenBot is distributed under the MIT License, except for [parts](app/asismic) extending the Sismic library, which are bound by the [LGPL-3.0 License](https://raw.githubusercontent.com/AlexandreDecan/sismic/master/LICENSE).
 
 ## Contact
 If you have any questions, suggestions, or need support with OpenBot, please open an issue in the GitHub repository.
 
 ---
 
-Developed by Valentin Safronov | Since 2022
+Developed by Valentin Safronov
